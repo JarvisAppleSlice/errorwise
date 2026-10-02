@@ -1,0 +1,146 @@
+{
+  "name": "code-coach",
+  "displayName": "Code Coach: Errors in Plain English",
+  "description": "Turns confusing error messages into plain-language steps with everyday metaphors. Built for people learning to code.",
+  "version": "0.1.0",
+  "publisher": "your-publisher-id",
+  "license": "MIT",
+  "icon": "images/icon.png",
+  "galleryBanner": {
+    "color": "#127E86",
+    "theme": "dark"
+  },
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Education",
+    "Programming Languages",
+    "Other"
+  ],
+  "keywords": [
+    "beginner",
+    "errors",
+    "learning",
+    "explain",
+    "python",
+    "teaching"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "codeCoach.explainAtCursor",
+        "title": "Code Coach: Explain the error at my cursor",
+        "icon": "$(mortar-board)"
+      },
+      {
+        "command": "codeCoach.explainText",
+        "title": "Code Coach: Explain selected text or a copied error"
+      },
+      {
+        "command": "codeCoach.explainTerminalSelection",
+        "title": "Code Coach: Explain this error"
+      },
+      {
+        "command": "codeCoach.explainDiagnostic",
+        "title": "Explain this error simply",
+        "category": "Code Coach"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "codeCoach.explainDiagnostic",
+          "when": "false"
+        },
+        {
+          "command": "codeCoach.explainTerminalSelection",
+          "when": "false"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "codeCoach.explainAtCursor",
+          "group": "navigation@100"
+        },
+        {
+          "command": "codeCoach.explainText",
+          "when": "editorHasSelection",
+          "group": "navigation@101"
+        }
+      ],
+      "terminal/context": [
+        {
+          "command": "codeCoach.explainTerminalSelection",
+          "group": "navigation"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "codeCoach.explainAtCursor",
+        "key": "ctrl+alt+e",
+        "mac": "cmd+alt+e",
+        "when": "editorTextFocus"
+      }
+    ],
+    "configuration": {
+      "title": "Code Coach",
+      "properties": {
+        "codeCoach.useAI": {
+          "type": "boolean",
+          "default": true,
+          "description": "Use an AI model (such as GitHub Copilot) to explain errors using your actual code. When off, or when no model is available, Code Coach uses its built-in explanations."
+        },
+        "codeCoach.experienceLevel": {
+          "type": "string",
+          "enum": [
+            "brand new",
+            "a few months"
+          ],
+          "enumDescriptions": [
+            "Assume no programming knowledge. Explain every term.",
+            "Assume the basics (variables, loops, functions) are known."
+          ],
+          "default": "brand new",
+          "description": "How much coding experience to assume in explanations."
+        },
+        "codeCoach.metaphorTheme": {
+          "type": "string",
+          "enum": [
+            "anything relatable",
+            "cooking and the kitchen",
+            "sports",
+            "video games",
+            "school and the classroom",
+            "building and construction",
+            "cars and driving"
+          ],
+          "default": "anything relatable",
+          "description": "Where AI metaphors should come from. Pick something you know well."
+        },
+        "codeCoach.showHoverLink": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show an \"Explain simply\" link when you hover over an error."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "test": "npm run compile && node ./out/test/knowledge.test.js",
+    "package": "vsce package --allow-missing-repository"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "1.90.0",
+    "@vscode/vsce": "^3.0.0",
+    "typescript": "^5.4.0"
+  }
+}

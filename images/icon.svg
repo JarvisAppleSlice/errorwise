@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#25B5A8"/>
+      <stop offset="1" stop-color="#127E86"/>
+    </linearGradient>
+    <linearGradient id="lid" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#F4F7FB"/>
+      <stop offset="1" stop-color="#D9E1EA"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background tile -->
+  <rect x="0" y="0" width="256" height="256" rx="56" fill="url(#bg)"/>
+  <circle cx="128" cy="112" r="92" fill="#ffffff" opacity="0.08"/>
+
+  <!-- Ears -->
+  <circle cx="64" cy="104" r="26" fill="#7A4A24"/>
+  <circle cx="64" cy="104" r="15" fill="#F0BE8A"/>
+  <circle cx="192" cy="104" r="26" fill="#7A4A24"/>
+  <circle cx="192" cy="104" r="15" fill="#F0BE8A"/>
+
+  <!-- Head -->
+  <circle cx="128" cy="104" r="64" fill="#8B5630"/>
+  <!-- Little tuft of hair -->
+  <path d="M116 44 Q122 30 130 42 Q136 30 142 44" fill="none" stroke="#8B5630" stroke-width="8" stroke-linecap="round"/>
+
+  <!-- Face patch -->
+  <circle cx="107" cy="100" r="27" fill="#F5CB98"/>
+  <circle cx="149" cy="100" r="27" fill="#F5CB98"/>
+  <ellipse cx="128" cy="132" rx="44" ry="32" fill="#F5CB98"/>
+
+  <!-- Eyes (looking down at the screen) -->
+  <ellipse cx="110" cy="104" rx="8" ry="9.5" fill="#22160E"/>
+  <ellipse cx="146" cy="104" rx="8" ry="9.5" fill="#22160E"/>
+  <circle cx="112.5" cy="100.5" r="3" fill="#ffffff"/>
+  <circle cx="148.5" cy="100.5" r="3" fill="#ffffff"/>
+  <!-- Eyebrows, raised: "aha!" -->
+  <path d="M98 84 Q108 77 118 83" fill="none" stroke="#5E3618" stroke-width="5" stroke-linecap="round"/>
+  <path d="M138 83 Q148 77 158 84" fill="none" stroke="#5E3618" stroke-width="5" stroke-linecap="round"/>
+
+  <!-- Nose -->
+  <ellipse cx="122" cy="125" rx="3.2" ry="2.6" fill="#6B3E1E"/>
+  <ellipse cx="134" cy="125" rx="3.2" ry="2.6" fill="#6B3E1E"/>
+
+  <!-- Smile -->
+  <path d="M112 136 Q128 148 144 136" fill="none" stroke="#6B3E1E" stroke-width="4.5" stroke-linecap="round"/>
+
+  <!-- Laptop lid (back faces us) -->
+  <rect x="50" y="150" width="156" height="72" rx="10" fill="url(#lid)"/>
+  <!-- Laptop base -->
+  <path d="M34 222 H222 L214 232 Q212 234 208 234 H48 Q44 234 42 232 Z" fill="#B8C3CF"/>
+
+  <!-- Hands gripping the top of the lid -->
+  <ellipse cx="84" cy="152" rx="15" ry="10" fill="#8B5630"/>
+  <ellipse cx="172" cy="152" rx="15" ry="10" fill="#8B5630"/>
+  <path d="M77 150 v6 M84 149 v7 M91 150 v6" stroke="#6E4122" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M165 150 v6 M172 149 v7 M179 150 v6" stroke="#6E4122" stroke-width="2.5" stroke-linecap="round"/>
+
+  <!-- Lightbulb on the lid: the "aha" moment -->
+  <circle cx="128" cy="182" r="17" fill="#FFC93C"/>
+  <rect x="120" y="196" width="16" height="9" rx="3" fill="#7C8796"/>
+  <path d="M121 201 h14" stroke="#D9E1EA" stroke-width="2"/>
+  <path d="M122 182 q6 -8 12 0" fill="none" stroke="#FFF3C4" stroke-width="3" stroke-linecap="round"/>
+  <!-- Glow rays -->
+  <g stroke="#FFC93C" stroke-width="4" stroke-linecap="round">
+    <path d="M100 176 h-8"/>
+    <path d="M156 176 h8"/>
+    <path d="M104 163 l-6 -5"/>
+    <path d="M152 163 l6 -5"/>
+  </g>
+</svg>
