@@ -13,18 +13,18 @@ export function activate(context: vscode.ExtensionContext): void {
     coach,
 
     // Used by the hover link and the lightbulb.
-    vscode.commands.registerCommand('codeCoach.explainDiagnostic', async (args?: DiagnosticArgs) => {
+    vscode.commands.registerCommand('errorwise.explainDiagnostic', async (args?: DiagnosticArgs) => {
       if (!args) {
-        return vscode.commands.executeCommand('codeCoach.explainAtCursor');
+        return vscode.commands.executeCommand('errorwise.explainAtCursor');
       }
       await coach.explain(await contextFromDiagnostic(args));
     }),
 
     // Ctrl+Alt+E, right-click menu, or Command Palette.
-    vscode.commands.registerCommand('codeCoach.explainAtCursor', async () => {
+    vscode.commands.registerCommand('errorwise.explainAtCursor', async () => {
       const editor = vscode.window.activeTextEditor;
       if (!editor) {
-        return vscode.commands.executeCommand('codeCoach.explainText');
+        return vscode.commands.executeCommand('errorwise.explainText');
       }
       const pos = editor.selection.active;
       const onLine = vscode.languages
@@ -34,10 +34,10 @@ export function activate(context: vscode.ExtensionContext): void {
 
       if (onLine.length === 0) {
         if (!editor.selection.isEmpty) {
-          return vscode.commands.executeCommand('codeCoach.explainText');
+          return vscode.commands.executeCommand('errorwise.explainText');
         }
         vscode.window.showInformationMessage(
-          'No problems on this line. 🎉 To explain an error from the terminal, select it, right-click, and choose "Code Coach: Explain this error".'
+          'No problems on this line. 🎉 To explain an error from the terminal, select it, right-click, and choose "Errorwise: Explain this error".'
         );
         return;
       }
@@ -57,7 +57,7 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
 
     // Explain selected text, or whatever error is on the clipboard.
-    vscode.commands.registerCommand('codeCoach.explainText', async () => {
+    vscode.commands.registerCommand('errorwise.explainText', async () => {
       const editor = vscode.window.activeTextEditor;
       let text = editor && !editor.selection.isEmpty ? editor.document.getText(editor.selection) : '';
       if (!text.trim()) {
@@ -77,11 +77,11 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
 
     // Right-click in the terminal.
-    vscode.commands.registerCommand('codeCoach.explainTerminalSelection', async () => {
+    vscode.commands.registerCommand('errorwise.explainTerminalSelection', async () => {
       await vscode.commands.executeCommand('workbench.action.terminal.copySelection');
       const text = await vscode.env.clipboard.readText();
       if (!text.trim()) {
-        vscode.window.showInformationMessage('Select the error text in the terminal first, then right-click → "Code Coach: Explain this error".');
+        vscode.window.showInformationMessage('Select the error text in the terminal first, then right-click → "Errorwise: Explain this error".');
         return;
       }
       await coach.explain(await contextFromText(text));
@@ -103,7 +103,7 @@ class ExplainCodeActions implements vscode.CodeActionProvider {
     return ctx.diagnostics.slice(0, 3).map((d) => {
       const action = new vscode.CodeAction(`🎓 Explain simply: ${friendlyLabel(d.message)}`, vscode.CodeActionKind.QuickFix);
       action.command = {
-        command: 'codeCoach.explainDiagnostic',
+        command: 'errorwise.explainDiagnostic',
         title: 'Explain this error simply',
         arguments: [diagnosticToArgs(doc.uri, d)],
       };
@@ -117,7 +117,7 @@ class ExplainCodeActions implements vscode.CodeActionProvider {
 /** Adds an "Explain simply" link to the hover popup on problems. */
 class ExplainHover implements vscode.HoverProvider {
   provideHover(doc: vscode.TextDocument, pos: vscode.Position): vscode.Hover | undefined {
-    if (!vscode.workspace.getConfiguration('codeCoach').get<boolean>('showHoverLink', true)) {
+    if (!vscode.workspace.getConfiguration('errorwise').get<boolean>('showHoverLink', true)) {
       return undefined;
     }
     const diags = vscode.languages.getDiagnostics(doc.uri).filter((d) => d.range.contains(pos));
@@ -125,10 +125,10 @@ class ExplainHover implements vscode.HoverProvider {
       return undefined;
     }
     const md = new vscode.MarkdownString(undefined, true);
-    md.isTrusted = { enabledCommands: ['codeCoach.explainDiagnostic'] };
+    md.isTrusted = { enabledCommands: ['errorwise.explainDiagnostic'] };
     for (const d of diags.slice(0, 3)) {
       const args = encodeURIComponent(JSON.stringify([diagnosticToArgs(doc.uri, d)]));
-      md.appendMarkdown(`$(mortar-board) [Explain simply: ${escapeMd(friendlyLabel(d.message))}](command:codeCoach.explainDiagnostic?${args})\n\n`);
+      md.appendMarkdown(`$(mortar-board) [Explain simply: ${escapeMd(friendlyLabel(d.message))}](command:errorwise.explainDiagnostic?${args})\n\n`);
     }
     return new vscode.Hover(md);
   }

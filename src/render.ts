@@ -25,7 +25,7 @@ export function renderHtml(state: PanelState, opts: { nonce: string; cspSource: 
 <meta charset="UTF-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${opts.cspSource} 'unsafe-inline'; script-src 'nonce-${opts.nonce}';">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Code Coach</title>
+<title>Errorwise</title>
 <style>${CSS}</style>
 </head>
 <body>

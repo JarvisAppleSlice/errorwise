@@ -1,4 +1,4 @@
-# Code Coach: notes for Claude
+# Errorwise: notes for Claude
 
 A VS Code extension that explains error messages to people learning to code, using plain language, step-by-step fixes and everyday metaphors. The owner is a newer developer (C# certification, more comfortable in Python, has used TypeScript). Explain changes clearly and keep the code readable for them.
 
@@ -35,6 +35,15 @@ A VS Code extension that explains error messages to people learning to code, usi
 - Compiles against the real `@types/vscode` 1.90 and `npm test` passes (45 checks). The panel tab icon uses `images/icon.png`, because `WebviewPanel.iconPath` needs an image file in 1.90, not a `ThemeIcon`.
 - Not yet run inside VS Code. Try F5 with `examples/mistakes.py`: hover, lightbulb, Ctrl+Alt+E, and the terminal right-click flow.
 - `publisher` in package.json is a placeholder (`your-publisher-id`).
+- `examples/` is a set of practice files with deliberate mistakes (see `examples/README.md` for the scenario list and the guide each should show). Never "fix" the mistakes in them.
+
+## Known gaps (found by running the examples, not yet fixed)
+
+- Node errors pasted from the terminal: `lastMeaningfulLine` in context.ts picks the trailing `Node.js v25...` line as the message instead of the error line.
+- Node stack traces with a space in the path (this project lives in `Code Coach`): the `findLocation` regex cuts the path at the space, so the file isn't found and no code snippet is shown.
+- No guide matches these Pylance messages: `"x" is unbound` (only "possibly unbound" matches), `Object of type "..." is not callable`, `"int" is not iterable`.
+- No guide matches TypeScript's `'found' is possibly 'undefined'.` (only the older `Object is possibly` wording matches).
+- `if price = 3:` gets the missing-colon guide in the editor, because Pylance reports it as `Expected ":"`. The real mistake is `=` instead of `==`.
 
 ## Ideas for next steps
 

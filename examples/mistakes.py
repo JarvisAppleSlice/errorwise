@@ -4,7 +4,7 @@
 #   - click the lightbulb and pick "Explain simply"
 #   - put your cursor on a line and press Ctrl+Alt+E
 # Then run it (python mistakes.py), select the error in the terminal,
-# right-click, and pick "Code Coach: Explain this error".
+# right-click, and pick "Errorwise: Explain this error".
 
 prices = [3, 5, 2]
 total = 0

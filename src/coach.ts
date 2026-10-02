@@ -23,7 +23,7 @@ export class Coach implements vscode.Disposable {
     this.request?.cancel();
     const request = (this.request = new vscode.CancellationTokenSource());
 
-    const config = vscode.workspace.getConfiguration('codeCoach');
+    const config = vscode.workspace.getConfiguration('errorwise');
     const useAI = config.get<boolean>('useAI', true);
     const known = matchKnown(ctx.message, ctx.fullOutput);
     const cacheKey = `${ctx.message}\n${ctx.codeSnippet ?? ''}`;
@@ -36,7 +36,7 @@ export class Coach implements vscode.Disposable {
       explanation: previous ?? cached ?? known?.explanation ?? (useAI ? undefined : GENERAL),
       loading: useAI && !cached,
       canRetry: useAI,
-      notice: useAI ? undefined : 'AI explanations are turned off, so this is the built-in guide. You can turn them on in Settings → Code Coach.',
+      notice: useAI ? undefined : 'AI explanations are turned off, so this is the built-in guide. You can turn them on in Settings → Errorwise.',
     });
     if (!useAI || cached) {
       return;
@@ -81,8 +81,8 @@ export class Coach implements vscode.Disposable {
     this.state = state;
     if (!this.panel) {
       this.panel = vscode.window.createWebviewPanel(
-        'codeCoach',
-        'Code Coach',
+        'errorwise',
+        'Errorwise',
         { viewColumn: vscode.ViewColumn.Beside, preserveFocus: true },
         { enableScripts: true, localResourceRoots: [] }
       );

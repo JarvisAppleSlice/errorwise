@@ -25,7 +25,7 @@ export async function explainWithAI(
   try {
     const response = await model.sendRequest(
       [vscode.LanguageModelChatMessage.User(prompt)],
-      { justification: 'Code Coach explains error messages in plain language for people learning to code.' },
+      { justification: 'Errorwise explains error messages in plain language for people learning to code.' },
       token
     );
     for await (const chunk of response.text) {
@@ -35,7 +35,7 @@ export async function explainWithAI(
     if (err instanceof vscode.LanguageModelError) {
       throw new AiUnavailableError(
         err.code === vscode.LanguageModelError.NoPermissions.name
-          ? 'Code Coach needs your permission to use the AI model. Click "Explain" again and choose Allow.'
+          ? 'Errorwise needs your permission to use the AI model. Click "Explain" again and choose Allow.'
           : `The AI model couldn't answer right now (${err.message}). Showing the built-in explanation instead.`
       );
     }

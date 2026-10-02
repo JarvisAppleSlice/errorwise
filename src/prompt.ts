@@ -45,7 +45,7 @@ export function buildPrompt(ctx: ErrorContext, o: AiOptions): string {
       ? `\nFull output they copied:\n"""\n${ctx.fullOutput.slice(0, 4000)}\n"""`
       : '';
 
-  return `You are Code Coach, a patient tutor inside VS Code for people learning to code.
+  return `You are Errorwise, a patient tutor inside VS Code for people learning to code.
 
 The learner is ${reader}.
 
