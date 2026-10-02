@@ -37,6 +37,21 @@ const pick = (g: string[], ...idx: number[]) => {
 };
 
 /**
+ * Pylance describes a value it already knows as Literal[5] or Literal['hi'].
+ * Turn that into the plain type name a learner would recognise.
+ */
+const plainType = (type: string | undefined) => {
+  const literal = type?.match(/^Literal\[(.*)\]$/);
+  if (!literal) {
+    return type;
+  }
+  if (/^['"]/.test(literal[1])) {
+    return 'str';
+  }
+  return /^(True|False)$/.test(literal[1]) ? 'bool' : 'int';
+};
+
+/**
  * Order matters: more specific entries come first.
  * e.g. "NoneType has no attribute" must win over the general attribute error.
  */
@@ -47,9 +62,10 @@ export const ENTRIES: Entry[] = [
       /cannot access local variable ['"](\w+)['"]/i,
       /local variable ['"](\w+)['"] referenced before assignment/i,
       /["'](\w+)["'] is possibly unbound/i,
+      /["'](\w+)["'] is unbound/i,
     ],
     build: (g) => {
-      const n = pick(g, 1, 2, 3) ?? 'this variable';
+      const n = pick(g, 1, 2, 3, 4) ?? 'this variable';
       return {
         title: `"${n}" is used before it gets a value`,
         whatHappened: `Inside this function, ${c(n)} gets a value somewhere. That makes it the function's own private ${c(n)}. But this line uses it before that value is set, or on a path where it never gets set.`,
@@ -160,13 +176,16 @@ export const ENTRIES: Entry[] = [
       /['"]?([\(\[\{])['"]? was never closed/i,
       /["']?([\(\[\{])["']? was not closed/i,
       /unexpected EOF while parsing/i,
+      /(?:^|\s)['"]([\)\]\}])['"] expected/i, // TypeScript: "')' expected."
     ],
     build: (g) => {
-      const b = pick(g, 1, 2);
+      // TypeScript names the closing bracket it wanted, so work out its opening partner.
+      const partner: Record<string, string> = { ')': '(', ']': '[', '}': '{' };
+      const b = pick(g, 1, 2) ?? partner[g[3]];
       return {
         title: 'A bracket was opened but never closed',
-        whatHappened: `There's an opening ${b ? c(b) : 'bracket'} with no matching closing one. Python kept reading, waiting for it to close, until it hit something that made no sense.`,
-        metaphor: `Brackets are like a pair of bookends. You set one down and Python waits for the other. Without the second bookend, everything after it slides into the wrong place.`,
+        whatHappened: `There's an opening ${b ? c(b) : 'bracket'} with no matching closing one. The computer kept reading, waiting for it to close, until it hit something that made no sense.`,
+        metaphor: `Brackets are like a pair of bookends. You set one down and the computer waits for the other. Without the second bookend, everything after it slides into the wrong place.`,
         steps: [
           'Look at this line and the line above it. The missing bracket is usually close by, even if the error points a bit later.',
           'Count the opening and closing brackets on the line. They should match.',
@@ -220,7 +239,7 @@ export const ENTRIES: Entry[] = [
   {
     id: 'none-value',
     patterns: [
-      /['"]NoneType['"] object/i,
+      /['"]NoneType['"]/i,
       /is not a known attribute of "None"/i,
       /Object of type "None" (?:is not|cannot)/i,
     ],
@@ -242,9 +261,10 @@ export const ENTRIES: Entry[] = [
       /Cannot read propert(?:y|ies) of (undefined|null)(?: \(reading ['"]([^'"]+)['"]\))?/i,
       /undefined is not an object/i,
       /Object is possibly '(undefined|null)'/i,
+      /'([^']+)' is possibly '(undefined|null)'/i, // newer TypeScript wording
     ],
     build: (g) => {
-      const what = pick(g, 1, 3) ?? 'undefined';
+      const what = pick(g, 1, 3, 5) ?? 'undefined';
       const prop = pick(g, 2);
       return {
         title: `The code looked inside something that is ${what}`,
@@ -262,9 +282,13 @@ export const ENTRIES: Entry[] = [
   },
   {
     id: 'not-callable',
-    patterns: [/['"](\w+)['"] object is not callable/i, /(\S+) is not a function/i],
+    patterns: [
+      /['"](\w+)['"] object is not callable/i,
+      /(\S+) is not a function/i,
+      /Object of type "([^"]+)" is not callable/i, // Pylance
+    ],
     build: (g) => {
-      const t = pick(g, 1, 2) ?? 'value';
+      const t = pick(g, 1, 2) ?? plainType(g[3]) ?? 'value';
       return {
         title: 'Your code tried to "run" something that isn\'t a function',
         whatHappened: `Putting ${c('( )')} after a name means "run this." But ${c(t)} isn't a function, so there's nothing to run.`,
@@ -374,6 +398,170 @@ export const ENTRIES: Entry[] = [
     },
   },
   {
+    id: 'not-iterable',
+    patterns: [
+      /['"](\w+)['"] object is not iterable/i, // Python runtime
+      /["']([^"']+)["'] is not iterable/i, // Pylance
+    ],
+    build: (g) => {
+      const t = plainType(pick(g, 1, 2)) ?? 'value';
+      return {
+        title: `This ${t} isn't something you can loop over`,
+        whatHappened: `A ${c('for')} loop goes through a group of things one at a time, like the items in a list or the letters in a word. This line gives it a ${c(t)}, which is one single value with nothing inside to go through.`,
+        metaphor: `It's like being asked to read out every name on a guest list, then being handed the number 5 instead of the list. There are no names to read. A loop needs the list itself, not a count of how many there are.`,
+        steps: [
+          `Find the ${c('for')} loop on this line and look at what comes after ${c('in')}.`,
+          `To repeat something a number of times, wrap the number in ${c('range()')}: ${c('for i in range(5):')}.`,
+          `To go through a list, loop over the list itself, not its length: ${c('for item in items:')}, not ${c('for item in len(items):')}.`,
+          'Print the value before the loop to check what it really holds.',
+        ],
+        remember: 'Loop over a list or a range(), not a single number.',
+      };
+    },
+  },
+  {
+    id: 'not-subscriptable',
+    patterns: [
+      /['"](\w+)['"] object is not subscriptable/i, // Python runtime
+      /"__getitem__" method not defined on type "([^"]+)"/i, // Pylance
+    ],
+    build: (g) => {
+      const t = plainType(pick(g, 1, 2)) ?? 'value';
+      return {
+        title: `You can't use [ ] on this ${t}`,
+        whatHappened: `Square brackets pull one item out of a group, like a list, a dictionary or a piece of text. This line uses them on a ${c(t)}, which is a single value with no items inside.`,
+        metaphor: `Square brackets are like asking for "page 3" of something. That works for a book. It doesn't work for a single coin, because a coin has no pages.`,
+        steps: [
+          'Find the square brackets on this line and look at the name right before them.',
+          `Print that value before this line to see what it really is: ${c('print(type(value))')}.`,
+          `If you wanted one digit of a number, turn it into text first: ${c('str(price)[0]')}.`,
+          'If you expected a list here, trace back to where the name got its value. It may have been replaced by a single number.',
+        ],
+        remember: '[ ] only works on things that hold other things.',
+      };
+    },
+  },
+  {
+    id: 'bad-index-type',
+    patterns: [
+      /(?:list|tuple|string|str) indices must be integers/i, // Python runtime
+      /No overloads for "__getitem__"/i, // Pylance
+      /in function "__getitem__"/i, // Pylance (second message on the same line)
+    ],
+    build: () => ({
+      title: 'A position in [ ] has to be a whole number',
+      whatHappened: `Items in a list, and letters in a piece of text, are found by their position: 0, 1, 2 and so on. This line asks for one using something else, like a name in quotes. Looking things up by name is what a dictionary does.`,
+      metaphor: `A list is like a row of numbered lockers. You can ask for locker 2, but you can't ask for "Ada's locker", because these lockers only have numbers on them. A dictionary is the row where every locker has a name tag.`,
+      steps: [
+        'Look inside the square brackets on this line. That value needs to be a whole number.',
+        `If it is text that holds a number, like ${c('"2"')}, convert it first: ${c('items[int(position)]')}.`,
+        `If you have a list of dictionaries, pick the dictionary first, then the key: ${c('members[0]["name"]')}.`,
+        `If you want to look things up by name, store them in a dictionary: ${c('points = {"Ada": 120}')}.`,
+      ],
+      remember: 'Lists use numbers in [ ]. Dictionaries use keys.',
+    }),
+  },
+  {
+    id: 'immutable-item',
+    patterns: [
+      /['"](\w+)['"] object does not support item assignment/i, // Python runtime
+      /"__setitem__" method not defined on type "([^"]+)"/i, // Pylance
+    ],
+    build: (g) => {
+      const t = plainType(pick(g, 1, 2)) ?? 'value';
+      return {
+        title: `One piece of this ${t} can't be swapped for another`,
+        whatHappened: `This line tries to replace one item inside a ${c(t)} using square brackets. Lists allow that. Text (${c('str')}) and tuples don't: once they are made, what is inside them stays fixed.`,
+        metaphor: `Text in Python is like a printed sign. You can read any letter on it, but you can't rub one letter out and write a different one. To change the wording, you print a new sign.`,
+        steps: [
+          'Find the square brackets on the left of the = sign on this line.',
+          `For text, build a new piece of text and store that: ${c('label = "b" + label[1:]')} or ${c('label = label.replace("B", "b")')}.`,
+          `For a tuple, use a list instead so the items can change: ${c('[1, 2, 3]')}, not ${c('(1, 2, 3)')}.`,
+          `If you need to change text one letter at a time, turn it into a list first: ${c('letters = list(label)')}.`,
+        ],
+        remember: 'To change text, make new text. Lists are the ones you can edit in place.',
+      };
+    },
+  },
+  {
+    id: 'unpack-mismatch',
+    patterns: [
+      /too many values to unpack/i, // Python runtime
+      /not enough values to unpack/i,
+      /Tuple size mismatch/i, // Pylance
+      /cannot be assigned to target tuple/i,
+    ],
+    build: () => ({
+      title: "The number of names doesn't match the number of values",
+      whatHappened: `This line splits a group of values into separate names, like ${c('name, points = record')}. That only works when there is exactly one value for each name. Here the two counts are different.`,
+      metaphor: `It's like dealing cards to the players at a table, one card each. With three cards and two players, one card has nowhere to go. With two cards and three players, someone gets nothing. Python stops instead of guessing.`,
+      steps: [
+        'Count the names on the left of the = sign.',
+        `Count the values on the right. If they come from ${c('.split()')} or a function, print the result first to see how many there are.`,
+        'Add or remove names on the left so the two counts match.',
+        `If you only need the first few values, catch the rest in a spare name with a star: ${c('name, points, *rest = record')}.`,
+      ],
+      remember: 'One name on the left for every value on the right.',
+    }),
+  },
+  {
+    id: 'comparison-types',
+    patterns: [
+      /['"]([<>]=?)['"] not supported between instances of ['"](\w+)['"] and ['"](\w+)['"]/i, // Python runtime
+      /Operator "([<>]=?)" not supported for types "([^"]+)" and "([^"]+)"/i, // Pylance
+      /Operator '([<>]=?)' cannot be applied to types '([^']+)' and '([^']+)'/i, // TypeScript
+    ],
+    build: (g) => {
+      const op = pick(g, 1, 4, 7) ?? '<';
+      const a = plainType(pick(g, 2, 5, 8)) ?? 'value';
+      const b = plainType(pick(g, 3, 6, 9)) ?? 'value';
+      const isTs = g[7] !== undefined;
+      return {
+        title: "You're comparing two different kinds of things",
+        whatHappened: `The ${c(op)} on this line compares a ${c(a)} with a ${c(b)}. The computer can only say which is bigger when both sides are the same kind of thing.`,
+        metaphor: `It's like asking which is bigger: a card with "eighteen" written on it, or 18 apples. One is writing and the other is an amount. You have to read the card and turn it into an amount before the question makes sense.`,
+        steps: [
+          `Find the ${c(op)} on this line and work out which side is text and which is a number.`,
+          isTs
+            ? `If the text is a number written in quotes, like ${c("'10'")}, remove the quotes.`
+            : `Remember that ${c('input()')} always gives back text, even when someone types digits.`,
+          isTs
+            ? `Otherwise turn the text into a number before comparing: ${c('Number(text) > 10')}.`
+            : `Turn the text into a number before comparing: ${c('int(age) >= 18')}.`,
+          isTs
+            ? 'Hover over each side in VS Code to see what type it is.'
+            : 'Print both values before this line to see what each one really holds.',
+        ],
+        remember: 'Compare numbers with numbers, and text with text.',
+      };
+    },
+  },
+  {
+    id: 'wrong-types-math',
+    patterns: [
+      /unsupported operand type\(s\) for ([-+*\/%]+): ['"](\w+)['"] and ['"](\w+)['"]/i, // Python runtime
+      /Operator "([-*\/%]+)" not supported for types "([^"]+)" and "([^"]+)"/i, // Pylance
+      /can't multiply sequence by non-int of type ['"](\w+)['"]/i,
+    ],
+    build: (g) => {
+      const op = pick(g, 1, 4) ?? '*';
+      const a = plainType(pick(g, 2, 5)) ?? 'list or text';
+      const b = plainType(pick(g, 3, 6, 7)) ?? 'value';
+      return {
+        title: `You can't use ${op} between ${a} and ${b}`,
+        whatHappened: `The ${c(op)} on this line has a ${c(a)} on one side and a ${c(b)} on the other. This kind of math only works when both sides are numbers. Very often one side is text that looks like a number, such as ${c('"4"')}.`,
+        metaphor: `It's like trying to subtract 4 from a price tag. The tag has "10" printed on it, but it is a piece of card, not an amount of money. Read the number off the tag first, then do the math.`,
+        steps: [
+          `Find the ${c(op)} on this line and work out which side isn't a number.`,
+          `Remember that ${c('input()')} always gives back text, even when someone types digits.`,
+          `Turn text into a number before doing math: ${c('int(paid) - 4')} for whole numbers, ${c('float(paid) - 4')} for decimals.`,
+          'Print both values before this line to see what each one really holds.',
+        ],
+        remember: 'Turn text into a number before doing math with it.',
+      };
+    },
+  },
+  {
     id: 'module-not-found',
     patterns: [
       /No module named ['"]([\w\.]+)['"]/i,
@@ -458,6 +646,209 @@ export const ENTRIES: Entry[] = [
     }),
   },
   {
+    id: 'missing-property',
+    patterns: [/Property '(\w+)' is missing in type '.*' but required in type '([^']+)'/i],
+    build: (g) => {
+      const prop = g[1] ?? 'a required piece';
+      const type = g[2] ?? 'object';
+      return {
+        title: `This ${type} is missing "${prop}"`,
+        whatHappened: `Every ${c(type)} is defined as having a ${c(prop)}. The one created on this line leaves ${c(prop)} out.`,
+        metaphor: `It's like handing in a form with a required box left empty. The office won't accept it until every required box is filled in. ${c(prop)} is a required box on the ${type} form.`,
+        steps: [
+          `Find where the object is created on this line (the part inside ${c('{ }')}).`,
+          `Add the missing piece inside the braces: ${c(prop + ': ...')}, with a value of the right type.`,
+          `If ${c(prop)} is meant to be optional, add a question mark after its name where ${c(type)} is defined: ${c(prop + '?')}.`,
+        ],
+        remember: 'An object must include every required piece of its type.',
+      };
+    },
+  },
+  {
+    id: 'implicit-any',
+    patterns: [/Parameter '(\w+)' implicitly has an 'any' type/i],
+    build: (g) => {
+      const n = g[1] ?? 'input';
+      return {
+        title: `TypeScript needs to know what kind of value "${n}" is`,
+        whatHappened: `In TypeScript, each input to a function is labelled with its type (the kind of value it holds), like ${c('number')} or ${c('string')}. The input ${c(n)} has no label, so TypeScript can't check that it is used correctly.`,
+        metaphor: `It's like a row of storage jars where one has no label. Flour, sugar or salt? The label is what lets everyone use the jar correctly. A type is the label on an input.`,
+        steps: [
+          `Find ${c(n)} in the parentheses on the function's first line.`,
+          `Add a colon and the type after it: ${c(n + ': number')} for a number, ${c(n + ': string')} for text, ${c(n + ': boolean')} for true or false.`,
+          'Do the same for any other inputs that have a squiggle.',
+        ],
+        remember: 'In TypeScript, label every function input with its type.',
+      };
+    },
+  },
+  {
+    id: 'const-reassign',
+    patterns: [
+      /Assignment to constant variable/i, // JavaScript runtime
+      /Cannot assign to '(\w+)' because it is a constant/i, // TypeScript
+    ],
+    build: (g) => {
+      const n = g[1];
+      return {
+        title: n ? `"${n}" was made with const, so it can't be given a new value` : "A name made with const can't be given a new value",
+        whatHappened: `${c('const')} creates a name whose value is set once and stays that way. This line tries to give ${n ? c(n) : 'one of those names'} a new value.`,
+        metaphor: `Think of a name tag pinned to a thing. With ${c('let')}, you can unpin the tag and pin it on something else. With ${c('const')}, the tag is glued on for good. This line is trying to move a glued tag.`,
+        steps: [
+          `Find where ${n ? c(n) : 'the name'} is created with ${c('const')}.`,
+          `Change ${c('const')} to ${c('let')} there if the value is meant to change later.`,
+          `Or keep ${c('const')} and store the new value under a new name: ${c('const newTotal = total + 5;')}.`,
+        ],
+        remember: 'Use let for values that change, and const for values that stay the same.',
+      };
+    },
+  },
+  {
+    id: 'redeclared',
+    patterns: [
+      /Cannot redeclare block-scoped variable '(\w+)'/i, // TypeScript
+      /Identifier '(\w+)' has already been declared/i, // JavaScript runtime
+      /A local variable (?:or function )?named '(\w+)' is already defined/i, // C#
+    ],
+    build: (g) => {
+      const n = pick(g, 1, 2, 3) ?? 'this name';
+      return {
+        title: `"${n}" has been created twice`,
+        whatHappened: `Words like ${c('let')} and ${c('const')} create a new name. This code creates ${c(n)} twice in the same place, and each name can only be created once.`,
+        metaphor: `It's like two people in one classroom both writing "Sam" on their name badge. When the teacher calls "Sam", nobody knows who is meant. In one room, each name can belong to only one person.`,
+        steps: [
+          `Press Ctrl+F and search for ${c(n)} to find both places where it is created.`,
+          `If you meant to change the value, remove ${c('let')} or ${c('const')} from the second one, so it reads ${c(n + ' = ...')}.`,
+          'If they are meant to be two different things, give one of them a different name.',
+        ],
+        remember: 'Create a name once. After that, use it without let or const.',
+      };
+    },
+  },
+  {
+    id: 'missing-return',
+    patterns: [
+      /Function lacks ending return statement/i, // TypeScript
+      /Not all code paths return a value/i, // TypeScript, C#
+    ],
+    build: () => ({
+      title: "This function doesn't always give back an answer",
+      whatHappened: `This function promises to hand back a value. But there is a way through it, usually when an ${c('if')} is skipped, where it reaches the end without a ${c('return')}.`,
+      metaphor: `It's like a plan that says "if it rains, I'll take the bus" and says nothing about dry days. The plan only covers one case. A function that promises an answer needs one for every case.`,
+      steps: [
+        `Find each ${c('if')} in the function and ask: what happens when it is false?`,
+        `Add a ${c('return')} at the very end of the function for the cases the ${c('if')} doesn't cover.`,
+        `Or add an ${c('else')} with its own ${c('return')}.`,
+      ],
+      remember: 'Every path through a function should end with return.',
+    }),
+  },
+  {
+    id: 'unreachable-code',
+    patterns: [/Unreachable code detected/i, /Code is unreachable/i],
+    build: () => ({
+      title: 'This code can never run',
+      whatHappened: `This line comes after something that always ends the function or loop first, like ${c('return')} or ${c('break')}. The computer leaves at that point and never gets here.`,
+      metaphor: `${c('return')} is like walking out of a room and closing the door behind you. Anything on your to-do list for that room after "leave" will never get done, because you are already gone.`,
+      steps: [
+        `Look at the lines above this one for a ${c('return')}, ${c('break')} or ${c('continue')}.`,
+        'Move this line above it if it is meant to run.',
+        `Check whether the ${c('return')} was meant to sit inside an ${c('if')}, so it only happens some of the time.`,
+        'Delete this line if it is not needed.',
+      ],
+      remember: 'Nothing after return runs.',
+    }),
+  },
+  {
+    id: 'return-outside-function',
+    patterns: [
+      /'return' outside function/i, // Python runtime
+      /"return" can be used only within a function/i, // Pylance
+      /A 'return' statement can only be used within a function body/i, // TypeScript
+      /Illegal return statement/i, // JavaScript runtime
+    ],
+    build: (g) => {
+      // g[0] is the part of the message that matched.
+      const isJs = /function body|Illegal return/i.test(g[0]);
+      return {
+        title: '"return" is being used outside a function',
+        whatHappened: `${c('return')} means "hand this answer back to whoever ran this function." This line isn't inside a function, so there is nobody to hand the answer back to.`,
+        metaphor: `${c('return')} is like a waiter carrying a dish back to the table that ordered it. Here nobody placed an order, so the waiter has no table to take the dish to.`,
+        steps: [
+          isJs
+            ? `Check the curly braces. If this line belongs to a function, it must sit between that function's ${c('{')} and ${c('}')}.`
+            : `Check the indentation. If this line belongs to a function, it must be indented under the ${c('def')} line.`,
+          isJs
+            ? `If you wanted to show the value, use ${c('console.log(...)')} instead of ${c('return')}.`
+            : `If you wanted to show the value, use ${c('print(...)')} instead of ${c('return')}.`,
+          isJs
+            ? `If you wanted to reuse this code, wrap it in a function: ${c('function getTotal() { ... }')}.`
+            : `If you wanted to reuse this code, put a ${c('def')} line above it and indent the lines underneath.`,
+        ],
+        remember: 'return only works inside a function.',
+      };
+    },
+  },
+  {
+    id: 'assign-in-condition',
+    patterns: [/Maybe you meant '=='/i], // Python runtime
+    build: () => ({
+      title: 'This line uses = where it needs ==',
+      whatHappened: `A single ${c('=')} stores a value in a name. A double ${c('==')} asks "are these two the same?" An ${c('if')} needs a question, and this line gives it a storing instruction instead.`,
+      metaphor: `${c('=')} is like sticking a label on a jar: "this jar is now sugar." ${c('==')} is like looking at the jar and asking "is this sugar?" After ${c('if')}, you want to ask, not to label.`,
+      steps: [
+        `Find the single ${c('=')} in the ${c('if')} or ${c('while')} on this line.`,
+        `Change it to ${c('==')}.`,
+        'Run your code again to check that the message is gone.',
+      ],
+      remember: '= stores a value. == compares two values.',
+    }),
+  },
+  {
+    id: 'missing-comma',
+    patterns: [
+      /Perhaps you forgot a comma/i, // Python runtime
+      /(?:^|\s)['"],['"] expected/i, // TypeScript: "',' expected."
+    ],
+    build: () => ({
+      title: 'A comma is missing between two items',
+      whatHappened: `Items in a list, and inputs to a function, are separated by commas. Two items here sit next to each other with no comma between them, so the computer can't tell where one ends and the next begins.`,
+      metaphor: `It's like a shopping list written as "milk eggs bread" on one line with no breaks. Is "milk eggs" one thing or two? Commas are the breaks that separate one item from the next.`,
+      steps: [
+        'Look along this line for two values side by side with only a space between them.',
+        'Type a comma between them.',
+        'Check the rest of the list or the function inputs for other missing commas.',
+        'If this line looks right, check the line above. A missing comma or bracket there can show up here.',
+      ],
+      remember: 'Every item in a list is separated from the next by a comma.',
+    }),
+  },
+  {
+    id: 'bracket-mismatch',
+    patterns: [
+      /closing parenthesis ['"]([\)\]\}])['"] does not match opening parenthesis ['"]([\(\[\{])['"]/i, // Python runtime
+      /unmatched ['"]([\)\]\}])['"]/i,
+    ],
+    build: (g) => {
+      const extra = g[3]; // a closing bracket with no opening partner at all
+      return {
+        title: "A closing bracket doesn't match the one that was opened",
+        whatHappened: extra
+          ? `This line has a closing ${c(extra)} with no opening bracket before it to pair with.`
+          : `This line opens a ${c(g[2] ?? '(')} but then closes with ${c(g[1] ?? ')')}. Each kind of bracket has to be closed by its own partner, and the one opened last has to close first.`,
+        metaphor: extra
+          ? `Brackets work like boxes and lids. Every lid needs a box to go on. Here there is a lid with no box.`
+          : `Brackets nest like boxes inside boxes. You have to put the lid on the small inner box before you can close the big one around it. Here the outer lid is going on while the inner box is still open.`,
+        steps: [
+          'Click right after each bracket on this line. VS Code highlights its partner.',
+          `Check the order. Brackets close in the reverse order they opened: ${c('print(prices[0])')}, not ${c('print(prices[0)]')}.`,
+          'Remove any extra closing bracket, or add the missing opening one.',
+        ],
+        remember: 'The last bracket opened is the first one closed.',
+      };
+    },
+  },
+  {
     id: 'type-mismatch',
     patterns: [
       /Type ['"]([^'"]+)['"] is not assignable to type ['"]([^'"]+)['"]/i,
@@ -482,7 +873,7 @@ export const ENTRIES: Entry[] = [
   },
   {
     id: 'missing-semicolon',
-    patterns: [/['"]?;['"]? expected/i],
+    patterns: [/(?:^|\s)['"]?;['"]? expected/i],
     build: () => ({
       title: 'A semicolon (;) is missing',
       whatHappened: 'In this language, each instruction ends with a semicolon. One instruction here is missing its semicolon.',

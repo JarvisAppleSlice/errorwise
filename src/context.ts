@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
+import { findLocation, lastMeaningfulLine } from './traceback';
 import { DiagnosticArgs, ErrorContext } from './types';
 
 /** Lines of code shown around the problem line (before / after). */
@@ -89,36 +90,10 @@ export function snippet(doc: vscode.TextDocument, line0: number): string {
   return out.join('\n');
 }
 
-/** For a traceback, the error itself is the last non-empty line. */
-function lastMeaningfulLine(text: string): string {
-  const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
-  if (lines.length <= 1) {
-    return text;
-  }
-  // JavaScript stack traces put the error first, then "at ..." lines.
-  if (lines.slice(1).every((l) => l.startsWith('at '))) {
-    return lines[0];
-  }
-  return lines[lines.length - 1];
-}
-
-/** Find the deepest "file + line" mentioned in an error output. */
-function findLocation(text: string): { file: string; line: number } | undefined {
-  // Python: File "/path/app.py", line 12, in main  (the last one is where it broke)
-  const py = [...text.matchAll(/File "([^"]+)", line (\d+)/g)];
-  if (py.length > 0) {
-    const last = py[py.length - 1];
-    return { file: last[1], line: Number(last[2]) };
-  }
-  // Node: at fn (/path/app.js:12:5)   (the first one is where it broke)
-  const js = text.match(/\(?((?:[A-Za-z]:)?[^\s():]+\.(?:js|ts|mjs|cjs|jsx|tsx)):(\d+):\d+\)?/);
-  if (js) {
-    return { file: js[1], line: Number(js[2]) };
-  }
-  return undefined;
-}
-
 async function resolveFile(file: string): Promise<vscode.Uri | undefined> {
+  if (file.startsWith('file://')) {
+    return vscode.Uri.parse(file);
+  }
   if (path.isAbsolute(file)) {
     return vscode.Uri.file(file);
   }

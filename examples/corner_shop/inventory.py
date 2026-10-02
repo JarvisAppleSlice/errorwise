@@ -19,3 +19,9 @@ def latest_delivery_day():
     """The most recent day a delivery arrived."""
     deliveries = ["Monday", "Thursday"]
     return deliveries[len(deliveries)]
+
+
+def aisle_letter():
+    """The first character of the bread aisle's code."""
+    aisle = 3
+    return aisle[0]

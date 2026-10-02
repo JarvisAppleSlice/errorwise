@@ -17,7 +17,8 @@ A VS Code extension that explains error messages to people learning to code, usi
 - `src/ai.ts`: calls the VS Code Language Model API (`vscode.lm`), preferring Copilot.
 - `src/prompt.ts`: the AI prompt and the JSON reply parser. No `vscode` import, so it is testable.
 - `src/knowledge.ts`: hand-written guides matched by regex (Python runtime, Pylance, JS/TS, C#). No `vscode` import. Order of `ENTRIES` matters: specific before general.
-- `src/context.ts`: builds `ErrorContext` from a diagnostic or from pasted text (finds file and line in Python and Node tracebacks and pulls the code around it).
+- `src/context.ts`: builds `ErrorContext` from a diagnostic or from pasted text, and pulls the code around the problem line.
+- `src/traceback.ts`: reads pasted terminal output: picks the line that states the error, and finds the file and line in Python and Node tracebacks. No `vscode` import, so it is testable.
 - `src/render.ts`: panel HTML and CSS using VS Code theme variables. No `vscode` import.
 - `src/types.ts`: shared types.
 
@@ -32,18 +33,21 @@ A VS Code extension that explains error messages to people learning to code, usi
 
 ## Status
 
-- Compiles against the real `@types/vscode` 1.90 and `npm test` passes (45 checks). The panel tab icon uses `images/icon.png`, because `WebviewPanel.iconPath` needs an image file in 1.90, not a `ThemeIcon`.
-- Not yet run inside VS Code. Try F5 with `examples/mistakes.py`: hover, lightbulb, Ctrl+Alt+E, and the terminal right-click flow.
+- 40 built-in guides. `npm test` passes (89 checks). The panel tab icon uses `images/icon.png`, because `WebviewPanel.iconPath` needs an image file in 1.90, not a `ThemeIcon`.
+- Runs in VS Code (F5). The AI path is untested because the owner doesn't have Copilot installed yet.
+- To check guide wording against real messages, run Pyright (`npx pyright --outputjson` in `examples/`, the engine inside Pylance) and `tsc --strict` on `examples/web_shop/*.ts`. Pyright's command line doesn't print hints, so `"x" is not accessed` and `Code is unreachable` are unverified.
 - `publisher` in package.json is a placeholder (`your-publisher-id`).
 - `examples/` is a set of practice files with deliberate mistakes (see `examples/README.md` for the scenario list and the guide each should show). Never "fix" the mistakes in them.
 
-## Known gaps (found by running the examples, not yet fixed)
+## Known gaps
 
-- Node errors pasted from the terminal: `lastMeaningfulLine` in context.ts picks the trailing `Node.js v25...` line as the message instead of the error line.
-- Node stack traces with a space in the path (this project lives in `Code Coach`): the `findLocation` regex cuts the path at the space, so the file isn't found and no code snippet is shown.
-- No guide matches these Pylance messages: `"x" is unbound` (only "possibly unbound" matches), `Object of type "..." is not callable`, `"int" is not iterable`.
-- No guide matches TypeScript's `'found' is possibly 'undefined'.` (only the older `Object is possibly` wording matches).
-- `if price = 3:` gets the missing-colon guide in the editor, because Pylance reports it as `Expected ":"`. The real mistake is `=` instead of `==`.
+Some Pylance squiggles describe a symptom, not the mistake, and matching on the message alone can't tell them apart. Fixing these would mean looking at the code line too.
+
+- `if price = 3:` squiggle says `Expected ":"`, so it gets the missing-colon guide. The real mistake is `=` instead of `==`. (Running the file gives the right guide.)
+- `[0.5 2.25, 0.3]` squiggle says `"[" was not closed`, so it gets the unclosed-bracket guide. The real mistake is a missing comma. (Running the file gives the right guide.)
+- `print(prices[0)]` squiggle also says `was not closed`. The real mistake is brackets closed in the wrong order.
+- No guide matches `Statements must be separated by newlines or semicolons`, which usually follows another syntax error.
+- FileNotFoundError has no guide yet (corner_shop scenario 18 tests the fallback).
 
 ## Ideas for next steps
 

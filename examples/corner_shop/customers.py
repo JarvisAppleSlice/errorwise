@@ -24,6 +24,11 @@ def points_by_name(name):
     return members[name]["points"]
 
 
+def is_gold_member(points):
+    """Gold members have 100 points or more."""
+    return points >= 100
+
+
 def read_member(record):
     """Split a saved record like "Ada,120" into its parts."""
     name, points = record.split(",")

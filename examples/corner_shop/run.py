@@ -127,6 +127,27 @@ def saved_member():
     print(customers.read_member("Ada,120,gold"))
 
 
+def bread_aisle():
+    """Show the first character of the bread aisle's code"""
+    print(inventory.aisle_letter())
+
+
+def hand_back_change():
+    """Work out the change from the amount the customer typed in"""
+    typed = "10"
+    print(pricing.change_due(typed, 4))
+
+
+def gold_check():
+    """Check whether a member with "120" points is a gold member"""
+    print(customers.is_gold_member("120"))
+
+
+def receipt_title():
+    """Print the shop's name at the top of the receipt"""
+    print(receipts.shop_name())
+
+
 SCENARIOS = [
     receipt_total,
     receipt_header,
@@ -149,6 +170,10 @@ SCENARIOS = [
     numbered_basket,
     quick_points,
     saved_member,
+    bread_aisle,
+    hand_back_change,
+    gold_check,
+    receipt_title,
 ]
 
 

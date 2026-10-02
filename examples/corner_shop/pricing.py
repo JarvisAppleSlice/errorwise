@@ -37,6 +37,11 @@ def price_range(items):
     return min(values), max(values)
 
 
+def change_due(paid, cost):
+    """How much money to hand back to the customer."""
+    return paid - cost
+
+
 def bulk_discount(quantity):
     """One percent off for every ten items bought."""
     if quantity == 0:

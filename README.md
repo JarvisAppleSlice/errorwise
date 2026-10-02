@@ -20,7 +20,7 @@ A VS Code extension for people learning to code. It turns confusing error messag
 
 If an AI model is available in VS Code (for example GitHub Copilot, including the free plan), Errorwise writes an explanation tailored to your actual code, using your variable names and line numbers.
 
-Without AI, it uses built-in guides for about 20 of the most common beginner errors in Python, JavaScript/TypeScript and C#. These also appear instantly while the AI is still writing.
+Without AI, it uses built-in guides for about 40 of the most common beginner errors and squiggles in Python, JavaScript/TypeScript and C#. These also appear instantly while the AI is still writing.
 
 ## Settings
 

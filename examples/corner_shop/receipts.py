@@ -8,6 +8,13 @@ def line(item, quantity):
     return f"{quantity} x {item}: {cost:.2f}"
 
 
+def shop_name():
+    """The shop's name, with a capital letter at the start."""
+    name = "corner shop"
+    name[0] = "C"
+    return name
+
+
 def header(basket):
     """The first line of the receipt."""
     count = len(basket)
