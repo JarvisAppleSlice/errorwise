@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
-import { AiUnavailableError, explainWithAI } from './ai';
-import { GENERAL, matchKnown } from './knowledge';
+import { AiUnavailableError, explainWithAI, log } from './ai';
+import { GENERAL, matchError } from './knowledge';
 import { PanelState, renderHtml } from './render';
 import { ErrorContext, Explanation } from './types';
 
@@ -16,8 +16,8 @@ export class Coach implements vscode.Disposable {
   /** Avoid asking the AI twice for the same error on the same code. */
   private cache = new Map<string, Explanation>();
 
-  /** extensionUri is the folder the extension is installed in, used to find the icon. */
-  constructor(private readonly extensionUri: vscode.Uri) {}
+  /** The extension's context: its install folder (for the icon), secret storage (for an API key) and saved state. */
+  constructor(private readonly context: vscode.ExtensionContext) {}
 
   async explain(ctx: ErrorContext, opts: { differentMetaphor?: boolean } = {}): Promise<void> {
     this.request?.cancel();
@@ -25,7 +25,10 @@ export class Coach implements vscode.Disposable {
 
     const config = vscode.workspace.getConfiguration('errorwise');
     const useAI = config.get<boolean>('useAI', true);
-    const known = matchKnown(ctx.message, ctx.fullOutput);
+    const known = matchError(ctx);
+    if (!known) {
+      void rememberUnmatched(this.context.globalState, ctx.message);
+    }
     const cacheKey = `${ctx.message}\n${ctx.codeSnippet ?? ''}`;
     const previous = opts.differentMetaphor ? this.state?.explanation : undefined;
 
@@ -52,7 +55,8 @@ export class Coach implements vscode.Disposable {
           teacherHint: opts.differentMetaphor ? undefined : known?.explanation.metaphor,
           avoidMetaphor: previous?.metaphor,
         },
-        request.token
+        request.token,
+        this.context
       );
       if (request.token.isCancellationRequested) {
         return;
@@ -63,6 +67,7 @@ export class Coach implements vscode.Disposable {
       if (request.token.isCancellationRequested) {
         return;
       }
+      log.appendLine(`No AI explanation: ${err instanceof Error ? err.message : String(err)}`);
       const reason =
         err instanceof AiUnavailableError
           ? err.message
@@ -86,7 +91,7 @@ export class Coach implements vscode.Disposable {
         { viewColumn: vscode.ViewColumn.Beside, preserveFocus: true },
         { enableScripts: true, localResourceRoots: [] }
       );
-      this.panel.iconPath = vscode.Uri.joinPath(this.extensionUri, 'images', 'icon.png');
+      this.panel.iconPath = vscode.Uri.joinPath(this.context.extensionUri, 'images', 'icon.png');
       this.panel.onDidDispose(() => {
         this.panel = undefined;
         this.request?.cancel();
@@ -119,6 +124,23 @@ export class Coach implements vscode.Disposable {
     this.request?.cancel();
     this.panel?.dispose();
   }
+}
+
+/** Saved list of error messages that had no built-in guide, to help decide which guides to write next. */
+export const UNMATCHED_KEY = 'errorwise.unmatchedErrors';
+const UNMATCHED_LIMIT = 50;
+
+/**
+ * Remember the first line of an error that had no built-in guide.
+ * Stays on this computer (VS Code's own storage) and is only shared if the learner copies it.
+ */
+async function rememberUnmatched(state: vscode.Memento, message: string): Promise<void> {
+  const firstLine = message.split(/\r?\n/)[0].trim().slice(0, 300);
+  if (!firstLine) {
+    return;
+  }
+  const list = state.get<string[]>(UNMATCHED_KEY, []).filter((m) => m !== firstLine);
+  await state.update(UNMATCHED_KEY, [firstLine, ...list].slice(0, UNMATCHED_LIMIT));
 }
 
 /** Open a file in the main editor with the cursor at the start of a line (1-based). */

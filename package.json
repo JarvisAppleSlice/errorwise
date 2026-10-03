@@ -5,6 +5,10 @@
   "version": "0.1.0",
   "publisher": "your-publisher-id",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/JarvisAppleSlice/errorwise.git"
+  },
   "icon": "images/icon.png",
   "galleryBanner": {
     "color": "#127E86",
@@ -49,6 +53,18 @@
         "command": "errorwise.explainDiagnostic",
         "title": "Explain this error simply",
         "category": "Errorwise"
+      },
+      {
+        "command": "errorwise.setApiKey",
+        "title": "Errorwise: Add an Anthropic API key"
+      },
+      {
+        "command": "errorwise.removeApiKey",
+        "title": "Errorwise: Remove the Anthropic API key"
+      },
+      {
+        "command": "errorwise.copyUnmatched",
+        "title": "Errorwise: Copy errors that had no guide"
       }
     ],
     "menus": {
@@ -86,6 +102,12 @@
         "key": "ctrl+alt+e",
         "mac": "cmd+alt+e",
         "when": "editorTextFocus"
+      },
+      {
+        "command": "errorwise.explainTerminalSelection",
+        "key": "ctrl+alt+e",
+        "mac": "cmd+alt+e",
+        "when": "terminalFocus && terminalTextSelected"
       }
     ],
     "configuration": {
@@ -95,6 +117,26 @@
           "type": "boolean",
           "default": true,
           "description": "Use an AI model (such as GitHub Copilot) to explain errors using your actual code. When off, or when no model is available, Errorwise uses its built-in explanations."
+        },
+        "errorwise.aiProvider": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "copilot",
+            "anthropic"
+          ],
+          "enumDescriptions": [
+            "Use GitHub Copilot (or another AI model in VS Code) if there is one, otherwise your Anthropic API key if you added one.",
+            "Only use GitHub Copilot or another AI model in VS Code.",
+            "Only use your own Anthropic API key. Add it with the command \"Errorwise: Add an Anthropic API key\"."
+          ],
+          "default": "auto",
+          "description": "Which AI writes the tailored explanations."
+        },
+        "errorwise.anthropicModel": {
+          "type": "string",
+          "default": "claude-opus-5-5",
+          "markdownDescription": "The Claude model used with your own Anthropic API key. Each explanation is billed to your Anthropic account. `claude-opus-5-5` gives the best explanations; `claude-sonnet-5-5` or `claude-haiku-4-5` cost less."
         },
         "errorwise.experienceLevel": {
           "type": "string",
@@ -142,5 +184,8 @@
     "@types/vscode": "1.90.0",
     "@vscode/vsce": "^3.0.0",
     "typescript": "^5.4.0"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.131.0"
   }
 }

@@ -4,7 +4,8 @@
  * and that AI replies are parsed safely.
  */
 import assert from 'node:assert/strict';
-import { matchKnown } from '../knowledge';
+import { matchError, matchKnown } from '../knowledge';
+import { isOutOfQuota, orderModels } from '../models';
 import { buildPrompt, parseExplanation } from '../prompt';
 import { renderHtml } from '../render';
 import { findLocation, lastMeaningfulLine } from '../traceback';
@@ -92,9 +93,37 @@ const cases: [message: string, expectedId: string, mustMention?: string][] = [
   ['Unreachable code detected.', 'unreachable-code'],
   ["Operator '>' cannot be applied to types 'number' and 'string'.", 'comparison-types', 'Number(text)'],
   ["A 'return' statement can only be used within a function body.", 'return-outside-function', 'console.log'],
-  // C#
-  ["A local variable or function named 'total' is already defined in this scope", 'redeclared', 'total'],
+  // C# squiggles (wording copied from the real compiler)
+  ["A local variable or function named 'total' is already defined in this scope", 'redeclared', 'without the type'],
   ["The name 'totl' does not exist in the current context", 'undefined-name', 'totl'],
+  ["Use of unassigned local variable 'count'", 'unassigned-local', 'int count = 0;'],
+  ["The type or namespace name 'StringBuilder' could not be found (are you missing a using directive or an assembly reference?)", 'missing-using', 'using System.Text;'],
+  ["An object reference is required for the non-static field, method, or property 'Program.ShowTotal()'", 'static-context', 'static int ShowTotal()'],
+  ["Operator '>' cannot be applied to operands of type 'string' and 'int'", 'comparison-types', 'int.Parse(age)'],
+  ["Operator '-' cannot be applied to operands of type 'string' and 'int'", 'wrong-types-math', 'Console.ReadLine()'],
+  ["There is no argument given that corresponds to the required parameter 'quantity' of 'Program.LineTotal(double, int)'", 'wrong-arg-count'],
+  ["'Program.Discount(int)': not all code paths return a value", 'missing-return'],
+  ["Cannot implicitly convert type 'double' to 'int'. An explicit conversion exists (are you missing a cast?)", 'type-mismatch'],
+  ["'string' does not contain a definition for 'Lenght' and no accessible extension method 'Lenght' accepting a first argument of type 'string' could be found (are you missing a using directive or an assembly reference?)", 'no-attribute', 'Lenght'],
+  ['Converting null literal or possible null value to non-nullable type.', 'possibly-null', '??'],
+  ["Possible null reference argument for parameter 's' in 'int int.Parse(string s)'.", 'possibly-null'],
+  ['Dereference of a possibly null reference.', 'possibly-null'],
+  ['; expected', 'missing-semicolon'],
+  [') expected', 'unclosed-bracket', 'opening `(`'],
+  // C# runtime
+  ['System.NullReferenceException: Object reference not set to an instance of an object.', 'null-reference', '?.'],
+  ["System.FormatException: The input string 'three' was not in a correct format.", 'bad-number-text', 'int.TryParse'],
+  ['System.IndexOutOfRangeException: Index was outside the bounds of the array.', 'index-out-of-range', 'items.Length - 1'],
+  ["System.ArgumentOutOfRangeException: Index was out of range. Must be non-negative and less than the size of the collection. (Parameter 'index')", 'index-out-of-range', 'foreach'],
+  ["System.Collections.Generic.KeyNotFoundException: The given key 'milk' was not present in the dictionary.", 'key-error', 'TryGetValue'],
+  ["System.InvalidCastException: Unable to cast object of type 'System.String' to type 'System.Int32'.", 'invalid-cast', 'int.Parse(text)'],
+  ["System.IO.FileNotFoundException: Could not find file 'C:\\shop\\sales_last_year.csv'.", 'file-not-found', '`sales_last_year.csv`'],
+  // Missing files in Python and Node
+  ["FileNotFoundError: [Errno 2] No such file or directory: 'sales_last_year.csv'", 'file-not-found', '`sales_last_year.csv`'],
+  ["Error: ENOENT: no such file or directory, open 'prices.json'", 'file-not-found', '`prices.json`'],
+  // Python guides keep their Python advice
+  ['IndexError: list index out of range', 'index-out-of-range', 'len(my_list) - 1'],
+  ["KeyError: 'age'", 'key-error', 'my_dict.get'],
   ["Cannot implicitly convert type 'string' to 'int'", 'type-mismatch', 'int'],
 ];
 
@@ -171,6 +200,48 @@ assert.equal(lastMeaningfulLine("NameError: name 'totl' is not defined"), "NameE
 assert.equal(findLocation("NameError: name 'totl' is not defined"), undefined);
 passed++;
 
+// C# errors copied from the terminal (the real .NET 8 output).
+const csError = `Unhandled exception. System.NullReferenceException: Object reference not set to an instance of an object.
+   at Shop.NicknameLength(String name) in C:\\My Code\\csharp_shop\\Shop.cs:line 18
+   at Program.<Main>$(String[] args) in C:\\My Code\\csharp_shop\\Program.cs:line 36`;
+assert.equal(lastMeaningfulLine(csError), 'System.NullReferenceException: Object reference not set to an instance of an object.');
+assert.deepEqual(findLocation(csError), { file: 'C:\\My Code\\csharp_shop\\Shop.cs', line: 18 });
+const csFormat = `Unhandled exception. System.FormatException: The input string 'three' was not in a correct format.
+   at System.Number.ThrowFormatException[TChar](ReadOnlySpan\`1 value)
+   at System.Int32.Parse(String s)
+   at Shop.ReadQuantity(String typed) in /Users/sam/shop/Shop.cs:line 23`;
+assert.deepEqual(findLocation(csFormat), { file: '/Users/sam/shop/Shop.cs', line: 23 });
+const csMissingFile = `Unhandled exception. System.IO.FileNotFoundException: Could not find file 'C:\\shop\\sales.csv'.
+File name: 'C:\\shop\\sales.csv'
+   at Microsoft.Win32.SafeHandles.SafeFileHandle.CreateFile(String fullPath)`;
+assert.equal(matchKnown(lastMeaningfulLine(csMissingFile))?.id, 'file-not-found');
+const csStackOverflow = `Stack overflow.
+Repeat 24082 times:
+--------------------------------
+   at Shop.CountDown(Int32)
+--------------------------------`;
+assert.equal(lastMeaningfulLine(csStackOverflow), 'Stack overflow.');
+assert.equal(matchKnown(lastMeaningfulLine(csStackOverflow))?.id, 'recursion');
+passed++;
+
+// Reading the code line: some squiggles describe a symptom, and the line shows the real mistake.
+const withLine = (message: string, codeLine: string) => matchError({ message, codeLine })?.id;
+assert.equal(withLine('Expected ":"', 'if price = 3:'), 'assign-in-condition');
+assert.equal(withLine('Expected ":"', 'if stock < 5'), 'missing-colon');
+assert.equal(withLine('Expected ":"', 'if total >= 3'), 'missing-colon');
+assert.equal(withLine('"[" was not closed', 'prices = [0.5 2.25, 0.3]'), 'missing-comma');
+assert.equal(withLine('"[" was not closed', 'names = [n for n in names if n'), 'unclosed-bracket');
+assert.equal(withLine('"(" was not closed', 'print(prices[0)]'), 'bracket-mismatch');
+assert.equal(withLine('"(" was not closed', 'print("Your total is", round(total, 2)'), 'unclosed-bracket');
+assert.equal(withLine('"(" was not closed', 'print("[)", round(total, 2)'), 'unclosed-bracket');
+assert.equal(withLine("Cannot implicitly convert type 'int' to 'bool'", '        if (count = 5)'), 'assign-in-condition');
+assert.equal(withLine("Cannot implicitly convert type 'int' to 'bool'", 'if (items.Any(x => x > 3) + 1)'), 'type-mismatch');
+assert.equal(withLine("Cannot implicitly convert type 'string' to 'int'", 'int quantity = "3";'), 'type-mismatch');
+assert.equal(withLine(') expected', 'static double LineTotal(double price, int quantity'), 'unclosed-bracket');
+assert.equal(withLine("NameError: name 'totl' is not defined", 'if totl = 3:'), 'undefined-name');
+assert.ok(matchError({ message: '"(" was not closed', codeLine: 'print(prices[0)]' })!.explanation.whatHappened.includes('opens a `[`'));
+passed++;
+
 // The panel shows a "Reference line" button and a short note for each related line.
 const missingQuantity = matchKnown("Property 'quantity' is missing in type '{ id: number; item: string; }' but required in type 'Order'.")!;
 const panel = renderHtml(
@@ -204,6 +275,25 @@ const plainPanel = renderHtml(
   { nonce: 'n', cspSource: 'c' }
 );
 assert.ok(!plainPanel.includes('Reference line'), 'No reference buttons when there are no related lines');
+passed++;
+
+// Which AI model to try first. Copilot's own list starts with models the free plan doesn't include.
+const copilotList = [
+  { id: 'claude-fable-5.1', family: 'claude-fable-5.1' },
+  { id: 'gpt-5', family: 'gpt-5' },
+  { id: 'claude-haiku-4.5', family: 'claude-haiku-4.5' },
+  { id: 'gpt-5-mini', family: 'gpt-5-mini' },
+  { id: 'gpt-4.1', family: 'gpt-4.1' },
+];
+assert.deepEqual(
+  orderModels(copilotList).map((m) => m.id),
+  ['gpt-4.1', 'gpt-5-mini', 'claude-haiku-4.5', 'claude-fable-5.1', 'gpt-5']
+);
+assert.equal(orderModels(copilotList, 'gpt-5')[0].id, 'gpt-5', 'The model that worked last time goes first');
+assert.equal(orderModels([]).length, 0);
+assert.ok(isOutOfQuota('You have exceeded your free request allowance'));
+assert.ok(isOutOfQuota('Request Failed: 429 rate limit'));
+assert.ok(!isOutOfQuota('Request Failed: 400 {"error":{"message":"The requested model is not supported."}}'));
 passed++;
 
 // AI replies: fenced JSON with chatter around it.

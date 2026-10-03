@@ -28,6 +28,8 @@ export interface ErrorContext {
   line?: number;
   /** A few numbered lines around the problem, problem line marked with >>. */
   codeSnippet?: string;
+  /** The problem line itself, exactly as written. */
+  codeLine?: string;
   /** Where the error came from (e.g. "Pylance", "ts"). */
   diagnosticSource?: string;
   diagnosticCode?: string;

@@ -1,16 +1,53 @@
 import * as vscode from 'vscode';
-import { Coach } from './coach';
+import { API_KEY_SECRET, log } from './ai';
+import { Coach, UNMATCHED_KEY } from './coach';
 import { contextFromDiagnostic, contextFromText, diagnosticToArgs } from './context';
-import { matchKnown } from './knowledge';
+import { matchError } from './knowledge';
 import { DiagnosticArgs } from './types';
 
 const FILES: vscode.DocumentSelector = [{ scheme: 'file' }, { scheme: 'untitled' }];
 
 export function activate(context: vscode.ExtensionContext): void {
-  const coach = new Coach(context.extensionUri);
+  const coach = new Coach(context);
 
   context.subscriptions.push(
     coach,
+    log,
+
+    // For people without Copilot: use their own Anthropic API key. Kept in VS Code's encrypted secret storage.
+    vscode.commands.registerCommand('errorwise.setApiKey', async () => {
+      const key = await vscode.window.showInputBox({
+        prompt: 'Paste your Anthropic API key. It is stored encrypted by VS Code on this computer only.',
+        placeHolder: 'sk-ant-...',
+        password: true,
+        ignoreFocusOut: true,
+        validateInput: (v) => (v.trim() && !v.trim().startsWith('sk-ant-') ? 'Anthropic API keys start with sk-ant-' : undefined),
+      });
+      if (key?.trim()) {
+        await context.secrets.store(API_KEY_SECRET, key.trim());
+        vscode.window.showInformationMessage(
+          'Errorwise will now use your Anthropic API key when Copilot is not available. Each explanation is billed to your Anthropic account.'
+        );
+      }
+    }),
+
+    vscode.commands.registerCommand('errorwise.removeApiKey', async () => {
+      await context.secrets.delete(API_KEY_SECRET);
+      vscode.window.showInformationMessage('Your Anthropic API key has been removed from Errorwise.');
+    }),
+
+    // For testers: copy the errors that had no built-in guide, to send to the developer.
+    vscode.commands.registerCommand('errorwise.copyUnmatched', async () => {
+      const list = context.globalState.get<string[]>(UNMATCHED_KEY, []);
+      if (list.length === 0) {
+        vscode.window.showInformationMessage('Every error so far had a built-in guide. Nothing to copy.');
+        return;
+      }
+      await vscode.env.clipboard.writeText(list.join('\n'));
+      vscode.window.showInformationMessage(
+        `Copied ${list.length} error message${list.length === 1 ? '' : 's'} that had no built-in guide. Paste them wherever you like.`
+      );
+    }),
 
     // Used by the hover link and the lightbulb.
     vscode.commands.registerCommand('errorwise.explainDiagnostic', async (args?: DiagnosticArgs) => {
@@ -45,7 +82,7 @@ export function activate(context: vscode.ExtensionContext): void {
       let chosen = onLine[0];
       if (onLine.length > 1) {
         const pick = await vscode.window.showQuickPick(
-          onLine.map((d) => ({ label: friendlyLabel(d.message), detail: d.message, d })),
+          onLine.map((d) => ({ label: friendlyLabel(editor.document, d), detail: d.message, d })),
           { placeHolder: 'There are a few problems on this line. Which one should I explain?' }
         );
         if (!pick) {
@@ -101,7 +138,7 @@ export function deactivate(): void {}
 class ExplainCodeActions implements vscode.CodeActionProvider {
   provideCodeActions(doc: vscode.TextDocument, _range: vscode.Range, ctx: vscode.CodeActionContext): vscode.CodeAction[] {
     return ctx.diagnostics.slice(0, 3).map((d) => {
-      const action = new vscode.CodeAction(`🎓 Explain simply: ${friendlyLabel(d.message)}`, vscode.CodeActionKind.QuickFix);
+      const action = new vscode.CodeAction(`🎓 Explain simply: ${friendlyLabel(doc, d)}`, vscode.CodeActionKind.QuickFix);
       action.command = {
         command: 'errorwise.explainDiagnostic',
         title: 'Explain this error simply',
@@ -128,19 +165,20 @@ class ExplainHover implements vscode.HoverProvider {
     md.isTrusted = { enabledCommands: ['errorwise.explainDiagnostic'] };
     for (const d of diags.slice(0, 3)) {
       const args = encodeURIComponent(JSON.stringify([diagnosticToArgs(doc.uri, d)]));
-      md.appendMarkdown(`$(mortar-board) [Explain simply: ${escapeMd(friendlyLabel(d.message))}](command:errorwise.explainDiagnostic?${args})\n\n`);
+      md.appendMarkdown(`$(mortar-board) [Explain simply: ${escapeMd(friendlyLabel(doc, d))}](command:errorwise.explainDiagnostic?${args})\n\n`);
     }
     return new vscode.Hover(md);
   }
 }
 
 /** Short plain-language label for a problem, using the built-in guide when it has one. */
-function friendlyLabel(message: string): string {
-  const known = matchKnown(message);
+function friendlyLabel(doc: vscode.TextDocument, d: vscode.Diagnostic): string {
+  const line = d.range.start.line;
+  const known = matchError({ message: d.message, codeLine: line < doc.lineCount ? doc.lineAt(line).text : undefined });
   if (known) {
     return known.explanation.title;
   }
-  const first = message.split('\n')[0];
+  const first = d.message.split('\n')[0];
   return first.length > 60 ? first.slice(0, 57) + '…' : first;
 }
 

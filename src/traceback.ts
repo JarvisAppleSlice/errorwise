@@ -1,5 +1,5 @@
 /**
- * Reads error output that a learner copied from the terminal:
+ * Reads error output that a learner copied from the terminal (Python, Node or C#):
  * finds the line that states the error, and the file and line it points at.
  *
  * This file must NOT import 'vscode' so it can be unit-tested with plain Node.
@@ -19,7 +19,10 @@ export function lastMeaningfulLine(text: string): string {
   if (firstAt > 0) {
     const before = lines.slice(0, firstAt);
     const named = [...before].reverse().find((l) => /^(?:Uncaught )?[\w.]*(?:Error|Exception)\b/.test(l));
-    return named ?? before[before.length - 1];
+    // C# starts with "Unhandled exception. System.FormatException: ...". Otherwise the
+    // first real line is the error ("Stack overflow.", Java's "Exception in thread ...").
+    const first = before.find((l) => /\w/.test(l));
+    return (named ?? first ?? before[0]).replace(/^Unhandled exception\.\s*/, '');
   }
   // Python puts the error on the last line of the traceback.
   return lines[lines.length - 1];
@@ -32,6 +35,12 @@ export function findLocation(text: string): { file: string; line: number } | und
   if (py.length > 0) {
     const last = py[py.length - 1];
     return { file: last[1], line: Number(last[2]) };
+  }
+  // C#: at Shop.Main() in C:\My Code\Program.cs:line 12  (the first one is where it broke;
+  // .NET's own frames come first but have no file, so they don't match)
+  const cs = text.match(/^\s*at .+? in (.+?\.cs):line (\d+)\s*$/m);
+  if (cs) {
+    return { file: cs[1], line: Number(cs[2]) };
   }
   // Node: at fn (C:\My Code\app.js:12:5)  or  at C:\My Code\app.js:12:5
   // The first one is where it broke. Folder names may contain spaces.

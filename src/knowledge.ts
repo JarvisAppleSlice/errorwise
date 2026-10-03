@@ -26,6 +26,9 @@ interface Entry {
 /** Wrap a piece of code in backticks so the panel shows it as code. */
 const c = (code: string) => '`' + code + '`';
 
+/** A keyboard shortcut written for this computer: Ctrl on Windows and Linux, Cmd on a Mac. */
+const key = (shortcut: string) => (process.platform === 'darwin' ? shortcut.replace('Ctrl', 'Cmd') : shortcut);
+
 /** First non-empty capture group (patterns put the same thing in different slots). */
 const pick = (g: string[], ...idx: number[]) => {
   for (const i of idx) {
@@ -96,7 +99,7 @@ export const ENTRIES: Entry[] = [
         metaphor: `It's like asking a friend to "grab the box labeled ${n}" when no box has that label. Your friend isn't being difficult. They looked, and it isn't there. Variables are labeled boxes, and the computer can only grab boxes that are already on the shelf.`,
         steps: [
           `Check the spelling of ${c(n)}. Capital letters count: ${c('Total')} and ${c('total')} are two different names.`,
-          `Press Ctrl+F and search for ${c(n)} to find where you meant to create it.`,
+          `Press ${key('Ctrl+F')} and search for ${c(n)} to find where you meant to create it.`,
           `If you never created it, add a line that gives it a starting value above this line.`,
           `If you did create it, make sure that line runs first and isn't hidden inside a different function.`,
           `If ${c(n)} was meant to be a word of text, not a name, put quote marks around it: ${c(`"${n}"`)}.`,
@@ -150,7 +153,7 @@ export const ENTRIES: Entry[] = [
       steps: [
         'Compare where the text starts on this line with the lines above it.',
         'Delete all the spaces at the start of this line, then press Tab until it lines up with the right block.',
-        `To clean up the whole file, press Ctrl+Shift+P and run ${c('Convert Indentation to Spaces')}.`,
+        `To clean up the whole file, press ${key('Ctrl+Shift+P')} and run ${c('Convert Indentation to Spaces')}.`,
       ],
       remember: "Pick tabs or spaces, and don't mix them.",
     }),
@@ -176,7 +179,7 @@ export const ENTRIES: Entry[] = [
       /['"]?([\(\[\{])['"]? was never closed/i,
       /["']?([\(\[\{])["']? was not closed/i,
       /unexpected EOF while parsing/i,
-      /(?:^|\s)['"]([\)\]\}])['"] expected/i, // TypeScript: "')' expected."
+      /(?:^|\s)['"]?([\)\]\}])['"]? expected/i, // TypeScript "')' expected.", C# ") expected"
     ],
     build: (g) => {
       // TypeScript names the closing bracket it wanted, so work out its opening partner.
@@ -312,6 +315,7 @@ export const ENTRIES: Entry[] = [
       /Expected (\d+) positional arguments?/i,
       /Argument missing for parameter/i,
       /No overload for method ['"](\w+)['"] takes (\d+) arguments/i, // C#
+      /There is no argument given that corresponds to the required parameter/i, // C#
     ],
     build: () => ({
       title: 'The function got the wrong number of inputs',
@@ -328,35 +332,57 @@ export const ENTRIES: Entry[] = [
   },
   {
     id: 'index-out-of-range',
-    patterns: [/list index out of range/i, /index out of range/i, /Index was outside the bounds of the array/i],
-    build: () => ({
-      title: "You asked for a spot in the list that doesn't exist",
-      whatHappened: 'Lists number their items starting from 0. This line asked for a position past the end of the list.',
-      metaphor: `Picture an egg carton holding 3 eggs, in spots 0, 1 and 2. Asking for egg number 3 is reaching for a spot that isn't there. The carton ends at 2.`,
-      steps: [
-        `Print the list's length just before this line: ${c('print(len(my_list))')}.`,
-        `Remember the last item is at ${c('len(my_list) - 1')}, not ${c('len(my_list)')}.`,
-        `In a loop, use ${c('for item in my_list:')} so Python does the counting for you.`,
-        `If the list could be empty, check ${c('if my_list:')} before reading from it.`,
-      ],
-      remember: 'A list of 3 items has spots 0, 1 and 2.',
-    }),
+    patterns: [
+      /list index out of range/i,
+      /index out of range/i,
+      /Index was outside the bounds of the array/i, // C# array
+      /Index was out of range\. Must be non-negative/i, // C# List
+    ],
+    build: (g) => {
+      const isCs = g[0] !== undefined && /^Index was/i.test(g[0]);
+      return {
+        title: "You asked for a spot in the list that doesn't exist",
+        whatHappened: 'Lists number their items starting from 0. This line asked for a position past the end of the list.',
+        metaphor: `Picture an egg carton holding 3 eggs, in spots 0, 1 and 2. Asking for egg number 3 is reaching for a spot that isn't there. The carton ends at 2.`,
+        steps: isCs
+          ? [
+              `Print the size before this line: ${c('Console.WriteLine(items.Length);')} for an array, or ${c('items.Count')} for a List.`,
+              `Remember the last item is at ${c('items.Length - 1')}, not ${c('items.Length')}.`,
+              `In a loop, use ${c('foreach (var item in items)')} so C# does the counting for you.`,
+              `In a ${c('for')} loop, check the condition uses ${c('<')}, not ${c('<=')}: ${c('i < items.Length')}.`,
+            ]
+          : [
+              `Print the list's length just before this line: ${c('print(len(my_list))')}.`,
+              `Remember the last item is at ${c('len(my_list) - 1')}, not ${c('len(my_list)')}.`,
+              `In a loop, use ${c('for item in my_list:')} so Python does the counting for you.`,
+              `If the list could be empty, check ${c('if my_list:')} before reading from it.`,
+            ],
+        remember: 'A list of 3 items has spots 0, 1 and 2.',
+      };
+    },
   },
   {
     id: 'key-error',
     patterns: [/KeyError: ['"]?([^'"\n]+?)['"]?\s*$/m, /The given key ['"]([^'"]+)['"] was not present/i],
     build: (g) => {
       const k = pick(g, 1, 2) ?? 'that key';
+      const isCs = g[2] !== undefined;
       return {
         title: `There's no "${k}" in this dictionary`,
-        whatHappened: `You looked up ${c(k)} in a dictionary, but the dictionary doesn't have that key.`,
+        whatHappened: `The code looked up ${c(k)} in a dictionary, but the dictionary doesn't have that key.`,
         metaphor: `A dictionary works like a coat check. You hand over a ticket (the key) and get your coat back (the value). This ticket was never handed out, so there's no coat to return.`,
-        steps: [
-          `Print the keys just before this line to see what's really there: ${c('print(my_dict.keys())')}.`,
-          `Check spelling and capital letters. ${c('"Name"')} and ${c('"name"')} are different keys.`,
-          `If the key might be missing, use ${c(`my_dict.get("${k}")`)}. It gives back ${c('None')} instead of crashing.`,
-        ],
-        remember: "Use .get() when you're not sure a key is there.",
+        steps: isCs
+          ? [
+              `Print the keys before this line to see what's really there: ${c('Console.WriteLine(string.Join(", ", stock.Keys));')}.`,
+              `Check spelling and capital letters. ${c('"Milk"')} and ${c('"milk"')} are different keys.`,
+              `If the key might be missing, check first: ${c(`if (stock.TryGetValue("${k}", out int count))`)}.`,
+            ]
+          : [
+              `Print the keys just before this line to see what's really there: ${c('print(my_dict.keys())')}.`,
+              `Check spelling and capital letters. ${c('"Name"')} and ${c('"name"')} are different keys.`,
+              `If the key might be missing, use ${c(`my_dict.get("${k}")`)}. It gives back ${c('None')} instead of crashing.`,
+            ],
+        remember: isCs ? "Use TryGetValue when you're not sure a key is there." : "Use .get() when you're not sure a key is there.",
       };
     },
   },
@@ -510,28 +536,35 @@ export const ENTRIES: Entry[] = [
       /['"]([<>]=?)['"] not supported between instances of ['"](\w+)['"] and ['"](\w+)['"]/i, // Python runtime
       /Operator "([<>]=?)" not supported for types "([^"]+)" and "([^"]+)"/i, // Pylance
       /Operator '([<>]=?)' cannot be applied to types '([^']+)' and '([^']+)'/i, // TypeScript
+      /Operator '([<>]=?)' cannot be applied to operands of type '([^']+)' and '([^']+)'/i, // C#
     ],
     build: (g) => {
-      const op = pick(g, 1, 4, 7) ?? '<';
-      const a = plainType(pick(g, 2, 5, 8)) ?? 'value';
-      const b = plainType(pick(g, 3, 6, 9)) ?? 'value';
-      const isTs = g[7] !== undefined;
+      const op = pick(g, 1, 4, 7, 10) ?? '<';
+      const a = plainType(pick(g, 2, 5, 8, 11)) ?? 'value';
+      const b = plainType(pick(g, 3, 6, 9, 12)) ?? 'value';
+      const steps =
+        g[7] !== undefined // TypeScript
+          ? [
+              `If the text is a number written in quotes, like ${c("'10'")}, remove the quotes.`,
+              `Otherwise turn the text into a number before comparing: ${c('Number(text) > 10')}.`,
+              'Hover over each side in VS Code to see what type it is.',
+            ]
+          : g[10] !== undefined // C#
+            ? [
+                `If the text is a number written in quotes, like ${c('"18"')}, remove the quotes.`,
+                `If it came from ${c('Console.ReadLine()')}, turn it into a number before comparing: ${c('int.Parse(age) > 17')}.`,
+                'Hover over each side in VS Code to see what type it is.',
+              ]
+            : [
+                `Remember that ${c('input()')} always gives back text, even when someone types digits.`,
+                `Turn the text into a number before comparing: ${c('int(age) >= 18')}.`,
+                'Print both values before this line to see what each one really holds.',
+              ];
       return {
         title: "You're comparing two different kinds of things",
         whatHappened: `The ${c(op)} on this line compares a ${c(a)} with a ${c(b)}. The computer can only say which is bigger when both sides are the same kind of thing.`,
         metaphor: `It's like asking which is bigger: a card with "eighteen" written on it, or 18 apples. One is writing and the other is an amount. You have to read the card and turn it into an amount before the question makes sense.`,
-        steps: [
-          `Find the ${c(op)} on this line and work out which side is text and which is a number.`,
-          isTs
-            ? `If the text is a number written in quotes, like ${c("'10'")}, remove the quotes.`
-            : `Remember that ${c('input()')} always gives back text, even when someone types digits.`,
-          isTs
-            ? `Otherwise turn the text into a number before comparing: ${c('Number(text) > 10')}.`
-            : `Turn the text into a number before comparing: ${c('int(age) >= 18')}.`,
-          isTs
-            ? 'Hover over each side in VS Code to see what type it is.'
-            : 'Print both values before this line to see what each one really holds.',
-        ],
+        steps: [`Find the ${c(op)} on this line and work out which side is text and which is a number.`, ...steps],
         remember: 'Compare numbers with numbers, and text with text.',
       };
     },
@@ -542,22 +575,173 @@ export const ENTRIES: Entry[] = [
       /unsupported operand type\(s\) for ([-+*\/%]+): ['"](\w+)['"] and ['"](\w+)['"]/i, // Python runtime
       /Operator "([-*\/%]+)" not supported for types "([^"]+)" and "([^"]+)"/i, // Pylance
       /can't multiply sequence by non-int of type ['"](\w+)['"]/i,
+      /Operator '([-*\/%])' cannot be applied to operands of type '([^']+)' and '([^']+)'/i, // C#
     ],
     build: (g) => {
-      const op = pick(g, 1, 4) ?? '*';
-      const a = plainType(pick(g, 2, 5)) ?? 'list or text';
-      const b = plainType(pick(g, 3, 6, 7)) ?? 'value';
+      const op = pick(g, 1, 4, 8) ?? '*';
+      const a = plainType(pick(g, 2, 5, 9)) ?? 'list or text';
+      const b = plainType(pick(g, 3, 6, 7, 10)) ?? 'value';
+      const isCs = g[8] !== undefined;
       return {
         title: `You can't use ${op} between ${a} and ${b}`,
         whatHappened: `The ${c(op)} on this line has a ${c(a)} on one side and a ${c(b)} on the other. This kind of math only works when both sides are numbers. Very often one side is text that looks like a number, such as ${c('"4"')}.`,
         metaphor: `It's like trying to subtract 4 from a price tag. The tag has "10" printed on it, but it is a piece of card, not an amount of money. Read the number off the tag first, then do the math.`,
-        steps: [
-          `Find the ${c(op)} on this line and work out which side isn't a number.`,
-          `Remember that ${c('input()')} always gives back text, even when someone types digits.`,
-          `Turn text into a number before doing math: ${c('int(paid) - 4')} for whole numbers, ${c('float(paid) - 4')} for decimals.`,
-          'Print both values before this line to see what each one really holds.',
-        ],
+        steps: isCs
+          ? [
+              `Find the ${c(op)} on this line and work out which side isn't a number.`,
+              `Remember that ${c('Console.ReadLine()')} always gives back text, even when someone types digits.`,
+              `Turn text into a number before doing math: ${c('int.Parse(paid) - 4')} for whole numbers, ${c('double.Parse(paid) - 4')} for decimals.`,
+              'Hover over each side in VS Code to see what type it is.',
+            ]
+          : [
+              `Find the ${c(op)} on this line and work out which side isn't a number.`,
+              `Remember that ${c('input()')} always gives back text, even when someone types digits.`,
+              `Turn text into a number before doing math: ${c('int(paid) - 4')} for whole numbers, ${c('float(paid) - 4')} for decimals.`,
+              'Print both values before this line to see what each one really holds.',
+            ],
         remember: 'Turn text into a number before doing math with it.',
+      };
+    },
+  },
+  {
+    id: 'null-reference',
+    patterns: [/Object reference not set to an instance of an object/i, /NullReferenceException/], // C# runtime
+    build: () => ({
+      title: 'The code used something that is empty (null)',
+      whatHappened: `This line uses a value that is ${c('null')}, C#'s word for "nothing here." Putting a dot after ${c('null')}, like ${c('name.Length')}, has nothing to look inside, so the program stops.`,
+      metaphor: `It's like a pizza box that arrives empty. The box (the variable) is there, but nothing was put in it, so there is no slice to take. Somewhere earlier, the code that should have filled it didn't.`,
+      steps: [
+        `Look at each name followed by a dot on this line. One of them is ${c('null')}.`,
+        `Print each one before this line to find which: ${c('Console.WriteLine(nickname == null);')}.`,
+        `Trace back to where that value came from. A method that can hand back ${c('null')}, like a search that finds nothing, is the usual cause.`,
+        `Check before using it, ${c('if (nickname != null)')}, or skip safely with ${c('?.')}: ${c('nickname?.Length')}.`,
+      ],
+      remember: "Check that something isn't null before putting a dot after it.",
+    }),
+  },
+  {
+    id: 'possibly-null',
+    patterns: [
+      /Dereference of a possibly null reference/i, // C# warning CS8602
+      /Converting null literal or possible null value to non-nullable type/i, // CS8600
+      /Possible null reference (?:argument|assignment|return)/i, // CS8604, CS8601, CS8603
+    ],
+    build: () => ({
+      title: 'This value might be empty (null)',
+      whatHappened: `C# noticed that this value could be ${c('null')} ("nothing here") at this point, and the code uses it as if it always holds something. This is a warning, not an error: the program still runs, but it may crash here.`,
+      metaphor: `It's like a parcel tracker that says "may not have been delivered." You can still go and open the parcel, but you might find nothing on the doorstep. C# is suggesting you check the doorstep first.`,
+      steps: [
+        `Find where the value comes from. ${c('Console.ReadLine()')}, and searches that find nothing, can both hand back ${c('null')}.`,
+        `Check for ${c('null')} before using it: ${c('if (name != null)')}.`,
+        `Or give it a backup value with ${c('??')}: ${c('string name = Console.ReadLine() ?? "";')}.`,
+      ],
+      remember: 'When a value might be null, check it or give it a backup.',
+    }),
+  },
+  {
+    id: 'unassigned-local',
+    patterns: [/Use of unassigned local variable '(\w+)'/i], // C#
+    build: (g) => {
+      const n = g[1] ?? 'this variable';
+      return {
+        title: `"${n}" is used before it gets a value`,
+        whatHappened: `C# requires every variable to be given a value before it is read. ${c(n)} is created on an earlier line, but nothing has been stored in it by the time this line uses it.`,
+        metaphor: `It's like a jar with a label on it but nothing inside. The label (the variable's name) is there, but nobody has filled the jar, so there is nothing to scoop out.`,
+        steps: [
+          `Find the line where ${c(n)} is created, like ${c('int ' + n + ';')}.`,
+          `Give it a starting value there: ${c('int ' + n + ' = 0;')}.`,
+          `If it only gets a value inside an ${c('if')}, set a starting value before the ${c('if')} so every path has one.`,
+        ],
+        remember: 'Give a variable a value before you read it.',
+      };
+    },
+  },
+  {
+    id: 'missing-using',
+    patterns: [/The type or namespace name '(\w+)' could not be found/i], // C#
+    build: (g) => {
+      const n = g[1] ?? 'this name';
+      return {
+        title: `C# can't find "${n}"`,
+        whatHappened: `C# keeps its ready-made tools in namespaces (named toolboxes). ${c(n)} lives in a toolbox this file hasn't opened, or the name is spelled differently.`,
+        metaphor: `It's like looking for the stapler in your desk when it's kept in the supply cupboard. It exists, but you have to open the right cupboard first. A ${c('using')} line at the top of the file opens it.`,
+        steps: [
+          `Check the spelling and capital letters of ${c(n)}.`,
+          `Click on ${c(n)} and press ${key('Ctrl+.')}. VS Code usually offers to add the missing ${c('using')} line for you.`,
+          `Or add it by hand at the top of the file. For example, ${c('StringBuilder')} needs ${c('using System.Text;')}.`,
+          'If it is a class you wrote yourself, check that its file is inside this project folder.',
+        ],
+        remember: 'Some tools need a using line at the top of the file.',
+      };
+    },
+  },
+  {
+    id: 'static-context',
+    patterns: [/An object reference is required for the non-static field, method, or property '([^']+)'/i], // C#
+    build: (g) => {
+      const full = g[1] ?? 'this method';
+      const name = full.replace(/\(.*\)$/, '').split('.').pop() ?? full;
+      return {
+        title: `"${name}" needs an object, and this code doesn't have one`,
+        whatHappened: `${c('static')} code, like ${c('Main')}, runs on its own, without an object (one made with ${c('new')}). ${c(name)} isn't ${c('static')}, so it only works on a particular object, and this line doesn't have one.`,
+        metaphor: `It's like the horn button in a car: it belongs to one particular car. Standing in the car park, you can't press "honk" until you pick a car. ${c('static')} code is the car park: it has no car of its own until you make one with ${c('new')}.`,
+        steps: [
+          `For a small program, the quickest fix is to add ${c('static')} to the start of ${c(name)}'s first line, like ${c('static int ' + name + '()')}.`,
+          `Or make an object first and call it on that: ${c('var program = new Program();')} then ${c('program.' + name + '();')}.`,
+          `Remember: inside a ${c('static')} method, you can only use other ${c('static')} things directly.`,
+        ],
+        remember: 'static methods can only call other static methods directly.',
+      };
+    },
+  },
+  {
+    id: 'invalid-cast',
+    patterns: [/Unable to cast object of type '([^']+)' to type '([^']+)'/i], // C# runtime
+    build: (g) => {
+      // .NET names types like System.Int32. Show the names a learner types instead.
+      const friendly: Record<string, string> = { Int32: 'int', Int64: 'long', String: 'string', Double: 'double', Boolean: 'bool', Decimal: 'decimal' };
+      const short = (t: string | undefined) => {
+        const last = (t ?? 'value').split('.').pop()!;
+        return friendly[last] ?? last;
+      };
+      const from = short(g[1]);
+      const to = short(g[2]);
+      return {
+        title: `A ${from} can't become a ${to} with a cast`,
+        whatHappened: `A cast like ${c(`(${to})value`)} only works when the value already is a ${c(to)} underneath. This value is really a ${c(from)}, so C# can't treat it as a ${c(to)}.`,
+        metaphor: `A cast is like relabelling a box. If the box really holds apples, an "apples" label is fine. If it holds oranges, a new label doesn't turn them into apples.`,
+        steps: [
+          'Find the cast on this line: a type in round brackets in front of a value.',
+          from === 'string'
+            ? `To turn text into a number, use ${c(`${to}.Parse(text)`)} instead of a cast.`
+            : `Use a conversion instead of a cast, like ${c(`Convert.To${g[2]?.split('.').pop() ?? 'Int32'}(value)`)}.`,
+          'Hover over the value to see its real type, and trace back to where it came from.',
+          `To check the type safely first, use ${c(`if (value is ${to} result)`)}.`,
+        ],
+        remember: 'A cast relabels a value. It does not convert it.',
+      };
+    },
+  },
+  {
+    id: 'file-not-found',
+    patterns: [
+      /No such file or directory: ['"]([^'"]+)['"]/i, // Python
+      /Could not find (?:file|a part of the path) ['"]([^'"]+)['"]/i, // C#
+      /ENOENT: no such file or directory, \w+ ['"]([^'"]+)['"]/i, // Node
+    ],
+    build: (g) => {
+      const file = (pick(g, 1, 2, 3) ?? 'that file').split(/[\\/]/).pop()!;
+      return {
+        title: `The file "${file}" couldn't be found`,
+        whatHappened: `The code tried to open ${c(file)}, but there's no file with that name where it looked. A file name with no folder in front is looked for in the folder the program is running from, which isn't always the folder the code is in.`,
+        metaphor: `It's like asking someone to "grab the folder from the top drawer" without saying which desk. They check the drawer of the desk they're standing at. If the folder is in a different desk, they come back empty-handed.`,
+        steps: [
+          `Check the file name's spelling and its ending, like ${c('.csv')} or ${c('.txt')}.`,
+          'Look at which folder the terminal is in. It is shown at the start of each terminal line.',
+          'Move the file into that folder, or run the program from the folder that holds the file.',
+          "Or use the file's full location: right-click the file in VS Code's Explorer, choose Copy Path, and paste that into your code.",
+        ],
+        remember: 'A file name on its own is looked for in the folder the program runs from.',
       };
     },
   },
@@ -611,11 +795,27 @@ export const ENTRIES: Entry[] = [
     patterns: [
       /invalid literal for int\(\) with base 10: ['"](.*)['"]/i,
       /could not convert string to float: ['"](.*)['"]/i,
-      /Input string was not in a correct format/i,
+      /Input string was not in a correct format/i, // C# (older .NET)
+      /input string ['"](.*)['"] was not in a correct format/i, // C# (.NET 8 and later)
     ],
     build: (g) => {
-      const raw = g[1] ?? g[2]; // may be '' when the input was empty
+      const raw = g[1] ?? g[2] ?? g[3]; // may be '' when the input was empty
       const v = raw === undefined ? 'this text' : raw.trim() === '' ? '(empty)' : raw;
+      const isCs = g[0] !== undefined && /correct format/i.test(g[0]);
+      if (isCs) {
+        return {
+          title: `"${v}" can't be turned into a number`,
+          whatHappened: `${c('int.Parse()')} and ${c('double.Parse()')} turn text into numbers. But ${c(v)} doesn't look like a number, so C# doesn't know which number you mean.`,
+          metaphor: `It's like asking a cashier to ring up "twelve-ish dollars." They need real digits. ${c('int.Parse()')} is a very literal cashier: plain digits only.`,
+          steps: [
+            'Print the text before this line to see exactly what it holds. Look for spaces, letters or an empty value.',
+            `If it came from ${c('Console.ReadLine()')}, the person may have typed something that isn't a number.`,
+            `For decimals like 3.5, use ${c('double.Parse()')} instead of ${c('int.Parse()')}.`,
+            `To handle bad typing gracefully, use ${c('int.TryParse(text, out int number)')}. It gives back ${c('false')} instead of crashing.`,
+          ],
+          remember: 'int.Parse() only accepts text made of digits.',
+        };
+      }
       return {
         title: `"${v}" can't be turned into a number`,
         whatHappened: `${c('int()')} and ${c('float()')} turn text into numbers. But ${c(v)} doesn't look like a number, so Python doesn't know which number you mean.`,
@@ -712,16 +912,23 @@ export const ENTRIES: Entry[] = [
     ],
     build: (g) => {
       const n = pick(g, 1, 2, 3) ?? 'this name';
+      const isCs = g[3] !== undefined;
       return {
         title: `"${n}" has been created twice`,
-        whatHappened: `Words like ${c('let')} and ${c('const')} create a new name. This code creates ${c(n)} twice in the same place, and each name can only be created once.`,
+        whatHappened: isCs
+          ? `Putting a type like ${c('int')} or ${c('string')} in front of a name creates a new variable. This code creates ${c(n)} twice in the same place, and each name can only be created once.`
+          : `Words like ${c('let')} and ${c('const')} create a new name. This code creates ${c(n)} twice in the same place, and each name can only be created once.`,
         metaphor: `It's like two people in one classroom both writing "Sam" on their name badge. When the teacher calls "Sam", nobody knows who is meant. In one room, each name can belong to only one person.`,
         steps: [
-          `Press Ctrl+F and search for ${c(n)} to find both places where it is created.`,
-          `If you meant to change the value, remove ${c('let')} or ${c('const')} from the second one, so it reads ${c(n + ' = ...')}.`,
+          `Press ${key('Ctrl+F')} and search for ${c(n)} to find both places where it is created.`,
+          isCs
+            ? `If you meant to change the value, remove the type from the second one, so it reads ${c(n + ' = ...;')}.`
+            : `If you meant to change the value, remove ${c('let')} or ${c('const')} from the second one, so it reads ${c(n + ' = ...')}.`,
           'If they are meant to be two different things, give one of them a different name.',
         ],
-        remember: 'Create a name once. After that, use it without let or const.',
+        remember: isCs
+          ? 'Create a variable once. After that, use its name without the type in front.'
+          : 'Create a name once. After that, use it without let or const.',
       };
     },
   },
@@ -952,6 +1159,110 @@ export function matchKnown(...texts: (string | undefined)[]): KnownMatch | undef
     }
   }
   return undefined;
+}
+
+/**
+ * Like matchKnown, but also reads the line of code the error points at.
+ *
+ * Some squiggles describe a symptom, not the mistake. Pylance reports
+ * `if price = 3:` as `Expected ":"`, and `[0.5 2.25]` as `"[" was not closed`.
+ * C# reports `if (count = 5)` as "Cannot implicitly convert type 'int' to 'bool'".
+ * When the line itself shows the real mistake, that guide wins.
+ */
+export function matchError(ctx: { message: string; fullOutput?: string; codeLine?: string }): KnownMatch | undefined {
+  const known = matchKnown(ctx.message, ctx.fullOutput);
+  if (!ctx.codeLine) {
+    return known;
+  }
+  const isSymptom = !known || ['missing-colon', 'unclosed-bracket', 'invalid-syntax'].includes(known.id);
+  const isBoolMismatch = known?.id === 'type-mismatch' && /'int' to 'bool'|to type 'bool'/i.test(ctx.message);
+  if (!isSymptom && !isBoolMismatch) {
+    return known;
+  }
+  const line = withoutStringsOrComments(ctx.codeLine);
+
+  if (isSymptom) {
+    const brackets = bracketProblem(line);
+    if (brackets) {
+      return build('bracket-mismatch', brackets);
+    }
+    // Only Pylance's "was not closed" wording is used for a missing comma: in C#,
+    // `(double price, int quantity)` puts two names side by side on purpose.
+    if (/^"[\(\[\{]" was not closed/.test(ctx.message) && hasNeighbouringValues(line)) {
+      return build('missing-comma', []);
+    }
+  }
+  if (assignsInCondition(line)) {
+    return build('assign-in-condition', []);
+  }
+  return known;
+}
+
+/** Build one guide by its id, with the capture groups it would normally get. */
+function build(id: string, groups: (string | undefined)[]): KnownMatch {
+  const entry = ENTRIES.find((e) => e.id === id)!;
+  return { id, explanation: { ...entry.build(groups as string[]), source: 'built-in' } };
+}
+
+/** Swap text in quotes for a placeholder, and drop comments, so they can't confuse the checks below. */
+function withoutStringsOrComments(line: string): string {
+  return line
+    .replace(/(["'])(?:\\.|(?!\1).)*\1/g, ' "" ')
+    .replace(/\s(#|\/\/).*$/, '')
+    .replace(/^\s*(#|\/\/).*$/, '');
+}
+
+/**
+ * A closing bracket that doesn't match the last one opened, like `print(prices[0)]`,
+ * as the capture groups the bracket-mismatch guide expects:
+ * [match, closing, opening] or [match, , , extra closing].
+ */
+function bracketProblem(line: string): (string | undefined)[] | undefined {
+  const partner: Record<string, string> = { ')': '(', ']': '[', '}': '{' };
+  const open: string[] = [];
+  for (const ch of line) {
+    if ('([{'.includes(ch)) {
+      open.push(ch);
+    } else if (ch in partner) {
+      const last = open.pop();
+      if (last === undefined) {
+        return [ch, undefined, undefined, ch];
+      }
+      if (last !== partner[ch]) {
+        return [ch, ch, last];
+      }
+    }
+  }
+  return undefined;
+}
+
+const KEYWORDS = new Set(
+  'for in if else elif and or not is lambda await async yield from as new typeof instanceof of return out ref'.split(' ')
+);
+
+/** Two values side by side inside brackets with nothing between them, like `[0.5 2.25]`. */
+function hasNeighbouringValues(line: string): boolean {
+  const tokens = line.match(/""|[A-Za-z_]\w*|\d+(?:\.\d+)?|\S/g) ?? [];
+  const isValue = (t: string) => t === '""' || /^\d/.test(t) || (/^[A-Za-z_]/.test(t) && !KEYWORDS.has(t));
+  let depth = 0;
+  for (let i = 0; i < tokens.length; i++) {
+    const t = tokens[i];
+    if ('([{'.includes(t)) {
+      depth++;
+    } else if (')]}'.includes(t)) {
+      depth--;
+    } else if (depth > 0 && i > 0 && isValue(t) && isValue(tokens[i - 1])) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/** An `if` or `while` whose condition stores a value with a single =, like `if price = 3:`. */
+function assignsInCondition(line: string): boolean {
+  const condition = line.match(/^\s*(?:if|elif|while)\b\s*(.*)$/)?.[1];
+  // A single = that isn't part of ==, !=, <=, >=, :=, +=, => and so on.
+  return condition !== undefined && /(?:^|[^=!<>:+\-*\/%&|^])=(?:$|[^=>])/.test(condition);
 }
 
 /** Number of capturing groups in a regex. */

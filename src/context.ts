@@ -52,6 +52,7 @@ export async function contextFromDiagnostic(args: DiagnosticArgs): Promise<Error
     fileName: path.basename(doc.fileName),
     line: args.startLine + 1,
     codeSnippet: snippet(doc, args.startLine),
+    codeLine: lineText(doc, args.startLine),
     diagnosticSource: args.source,
     diagnosticCode: args.code,
     uri: args.uri,
@@ -86,6 +87,7 @@ export async function contextFromText(text: string): Promise<ErrorContext> {
         ctx.fileName = path.basename(doc.fileName);
         ctx.line = location.line;
         ctx.codeSnippet = snippet(doc, location.line - 1);
+        ctx.codeLine = lineText(doc, location.line - 1);
         ctx.uri = uri.toString();
       }
     } catch {
@@ -95,7 +97,15 @@ export async function contextFromText(text: string): Promise<ErrorContext> {
   if (!ctx.languageId && /Traceback \(most recent call last\)|File ".+", line \d+/.test(trimmed)) {
     ctx.languageId = 'python';
   }
+  if (!ctx.languageId && /\.cs:line \d+/.test(trimmed)) {
+    ctx.languageId = 'csharp';
+  }
   return ctx;
+}
+
+/** The text of one line (0-based), or undefined if the file is shorter than that. */
+function lineText(doc: vscode.TextDocument, line0: number): string | undefined {
+  return line0 >= 0 && line0 < doc.lineCount ? doc.lineAt(line0).text : undefined;
 }
 
 /** Numbered lines around the problem, with the problem line marked ">>". */
