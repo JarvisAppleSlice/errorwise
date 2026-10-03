@@ -19,7 +19,7 @@ A VS Code extension that explains error messages to people learning to code, usi
 - `src/knowledge.ts`: hand-written guides matched by regex (Python runtime, Pylance, JS/TS, C#). No `vscode` import. Order of `ENTRIES` matters: specific before general.
 - `src/context.ts`: builds `ErrorContext` from a diagnostic or from pasted text, and pulls the code around the problem line.
 - `src/traceback.ts`: reads pasted terminal output: picks the line that states the error, and finds the file and line in Python and Node tracebacks. No `vscode` import, so it is testable.
-- `src/render.ts`: panel HTML and CSS using VS Code theme variables. No `vscode` import.
+- `src/render.ts`: panel HTML and CSS using VS Code theme variables. No `vscode` import. Shows "Go to line" plus a "Reference line" button and note for each of the diagnostic's related lines (e.g. where a missing property is declared).
 - `src/types.ts`: shared types.
 
 ## Writing rules (apply to built-in guides AND the AI prompt)
@@ -33,7 +33,7 @@ A VS Code extension that explains error messages to people learning to code, usi
 
 ## Status
 
-- 40 built-in guides. `npm test` passes (89 checks). The panel tab icon uses `images/icon.png`, because `WebviewPanel.iconPath` needs an image file in 1.90, not a `ThemeIcon`.
+- 40 built-in guides. `npm test` passes (90 checks). The panel tab icon uses `images/icon.png`, because `WebviewPanel.iconPath` needs an image file in 1.90, not a `ThemeIcon`.
 - Runs in VS Code (F5). The AI path is untested because the owner doesn't have Copilot installed yet.
 - To check guide wording against real messages, run Pyright (`npx pyright --outputjson` in `examples/`, the engine inside Pylance) and `tsc --strict` on `examples/web_shop/*.ts`. Pyright's command line doesn't print hints, so `"x" is not accessed` and `Code is unreachable` are unverified.
 - `publisher` in package.json is a placeholder (`your-publisher-id`).

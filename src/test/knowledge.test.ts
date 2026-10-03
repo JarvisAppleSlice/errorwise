@@ -6,6 +6,7 @@
 import assert from 'node:assert/strict';
 import { matchKnown } from '../knowledge';
 import { buildPrompt, parseExplanation } from '../prompt';
+import { renderHtml } from '../render';
 import { findLocation, lastMeaningfulLine } from '../traceback';
 
 const cases: [message: string, expectedId: string, mustMention?: string][] = [
@@ -168,6 +169,41 @@ passed++;
 // A single line stays as it is, and text with no file in it has no location.
 assert.equal(lastMeaningfulLine("NameError: name 'totl' is not defined"), "NameError: name 'totl' is not defined");
 assert.equal(findLocation("NameError: name 'totl' is not defined"), undefined);
+passed++;
+
+// The panel shows a "Reference line" button and a short note for each related line.
+const missingQuantity = matchKnown("Property 'quantity' is missing in type '{ id: number; item: string; }' but required in type 'Order'.")!;
+const panel = renderHtml(
+  {
+    ctx: {
+      message: 'Property missing',
+      fileName: 'checkout.ts',
+      line: 27,
+      uri: 'file:///shop/checkout.ts',
+      related: [
+        { uri: 'file:///shop/checkout.ts', line: 8, fileName: 'checkout.ts', note: "'quantity' is declared here." },
+        { uri: 'file:///shop/types.ts', line: 3, fileName: 'types.ts', note: "'Order' is declared here." },
+      ],
+    },
+    explanation: missingQuantity.explanation,
+    loading: false,
+    canRetry: false,
+  },
+  { nonce: 'n', cspSource: 'c' }
+);
+for (const piece of [
+  'Go to line 27',
+  'data-action="goToRelated" data-index="0">Reference line 8<',
+  'Reference line 3 in types.ts',
+  '<strong>Line 8:</strong> <code>quantity</code> is declared here.',
+]) {
+  assert.ok(panel.includes(piece), `Panel missing: ${piece}`);
+}
+const plainPanel = renderHtml(
+  { ctx: { message: 'x', line: 3, uri: 'file:///a.py' }, explanation: missingQuantity.explanation, loading: false, canRetry: false },
+  { nonce: 'n', cspSource: 'c' }
+);
+assert.ok(!plainPanel.includes('Reference line'), 'No reference buttons when there are no related lines');
 passed++;
 
 // AI replies: fenced JSON with chatter around it.

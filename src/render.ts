@@ -40,7 +40,7 @@ export function renderHtml(state: PanelState, opts: { nonce: string; cspSource: 
 <script nonce="${opts.nonce}">
   const vscode = acquireVsCodeApi();
   document.querySelectorAll('[data-action]').forEach((el) => {
-    el.addEventListener('click', () => vscode.postMessage({ action: el.dataset.action }));
+    el.addEventListener('click', () => vscode.postMessage({ action: el.dataset.action, index: Number(el.dataset.index) }));
   });
   document.querySelectorAll('.steps input').forEach((box) => {
     box.addEventListener('change', () => box.closest('li').classList.toggle('done', box.checked));
@@ -77,10 +77,23 @@ function renderExplanation(ex: Explanation, state: PanelState): string {
       </details>`
     : '';
 
+  const related = state.ctx.related ?? [];
+  const inOtherFile = (fileName: string) => (fileName !== state.ctx.fileName ? ` in ${fileName}` : '');
   const actions = [
     state.ctx.uri && state.ctx.line ? `<button data-action="goToLine">Go to line ${state.ctx.line}</button>` : '',
+    ...related.map(
+      (r, i) =>
+        `<button class="secondary" data-action="goToRelated" data-index="${i}">Reference line ${r.line}${esc(inOtherFile(r.fileName))}</button>`
+    ),
     state.canRetry && !state.loading ? `<button class="secondary" data-action="anotherMetaphor">Explain it a different way</button>` : '',
   ].join('');
+
+  // A short note on why each reference line matters, in the checker's own words.
+  const relatedNotes = related.length
+    ? `<ul class="related">${related
+        .map((r) => `<li><strong>Line ${r.line}${esc(inOtherFile(r.fileName))}:</strong> ${inline(quotesToCode(r.note))}</li>`)
+        .join('')}</ul>`
+    : '';
 
   return `
   <header>
@@ -102,7 +115,13 @@ function renderExplanation(ex: Explanation, state: PanelState): string {
     ${fix}
   </section>
   ${ex.remember ? `<p class="remember"><strong>Remember:</strong> ${inline(ex.remember)}</p>` : ''}
-  ${actions ? `<div class="actions">${actions}</div>` : ''}`;
+  ${actions ? `<div class="actions">${actions}</div>` : ''}
+  ${relatedNotes}`;
+}
+
+/** Checkers quote names like 'quantity'. Show them as code instead. */
+function quotesToCode(s: string): string {
+  return s.replace(/'([^'\s]+)'/g, '`$1`');
 }
 
 function renderLoadingOnly(): string {
@@ -183,6 +202,8 @@ details summary { cursor: pointer; color: var(--vscode-textLink-foreground); }
   border: 1px dashed var(--vscode-panel-border, var(--vscode-descriptionForeground));
 }
 .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: var(--gap); }
+.related { list-style: none; padding: 0; margin: 8px 0 0; font-size: 0.88em; color: var(--vscode-descriptionForeground); }
+.related li { margin-top: 2px; }
 button {
   font: inherit; font-size: 0.92em; padding: 6px 14px; border-radius: 4px; border: none; cursor: pointer;
   background: var(--vscode-button-background); color: var(--vscode-button-foreground);

@@ -33,6 +33,18 @@ export interface ErrorContext {
   diagnosticCode?: string;
   /** File URI, so "Go to line" can jump there. */
   uri?: string;
+  /** Other lines the error points at, like where a missing property is declared. */
+  related?: RelatedLine[];
+}
+
+/** Another line of code that helps explain the error. */
+export interface RelatedLine {
+  uri: string;
+  /** 1-based line number. */
+  line: number;
+  fileName: string;
+  /** What the checker says about this line, e.g. "'quantity' is declared here." */
+  note: string;
 }
 
 /** JSON-safe description of a diagnostic, passed through command links. */
@@ -45,4 +57,6 @@ export interface DiagnosticArgs {
   endCharacter: number;
   source?: string;
   code?: string;
+  /** The diagnostic's related information (0-based line numbers). */
+  related?: { uri: string; line: number; message: string }[];
 }

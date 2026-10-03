@@ -17,7 +17,22 @@ export function diagnosticToArgs(uri: vscode.Uri, d: vscode.Diagnostic): Diagnos
     endCharacter: d.range.end.character,
     source: d.source,
     code: diagnosticCode(d),
+    related: relatedLines(uri, d),
   };
+}
+
+/**
+ * Other lines the checker says are part of this error, like where a name is declared.
+ * Skips the error's own line, and the language's built-in library files
+ * (such as TypeScript's lib.es5.d.ts), which would only confuse a learner.
+ */
+function relatedLines(uri: vscode.Uri, d: vscode.Diagnostic): DiagnosticArgs['related'] {
+  const related = (d.relatedInformation ?? [])
+    .filter((r) => !/node_modules|\.d\.ts$|\.pyi$/.test(r.location.uri.path))
+    .filter((r) => r.location.uri.toString() !== uri.toString() || r.location.range.start.line !== d.range.start.line)
+    .slice(0, 3)
+    .map((r) => ({ uri: r.location.uri.toString(), line: r.location.range.start.line, message: r.message }));
+  return related.length > 0 ? related : undefined;
 }
 
 function diagnosticCode(d: vscode.Diagnostic): string | undefined {
@@ -40,6 +55,12 @@ export async function contextFromDiagnostic(args: DiagnosticArgs): Promise<Error
     diagnosticSource: args.source,
     diagnosticCode: args.code,
     uri: args.uri,
+    related: args.related?.map((r) => ({
+      uri: r.uri,
+      line: r.line + 1,
+      fileName: path.basename(vscode.Uri.parse(r.uri).fsPath),
+      note: r.message,
+    })),
   };
 }
 

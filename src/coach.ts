@@ -98,7 +98,7 @@ export class Coach implements vscode.Disposable {
     this.panel.webview.html = renderHtml(state, { nonce: nonce(), cspSource: this.panel.webview.cspSource });
   }
 
-  private async onMessage(msg: { action?: string }): Promise<void> {
+  private async onMessage(msg: { action?: string; index?: number }): Promise<void> {
     const ctx = this.state?.ctx;
     if (!ctx) {
       return;
@@ -106,12 +106,12 @@ export class Coach implements vscode.Disposable {
     if (msg.action === 'anotherMetaphor') {
       await this.explain(ctx, { differentMetaphor: true });
     } else if (msg.action === 'goToLine' && ctx.uri && ctx.line) {
-      const doc = await vscode.workspace.openTextDocument(vscode.Uri.parse(ctx.uri));
-      const pos = new vscode.Position(ctx.line - 1, 0);
-      await vscode.window.showTextDocument(doc, {
-        viewColumn: vscode.ViewColumn.One,
-        selection: new vscode.Range(pos, pos),
-      });
+      await openAt(ctx.uri, ctx.line);
+    } else if (msg.action === 'goToRelated') {
+      const related = ctx.related?.[msg.index ?? -1];
+      if (related) {
+        await openAt(related.uri, related.line);
+      }
     }
   }
 
@@ -119,6 +119,16 @@ export class Coach implements vscode.Disposable {
     this.request?.cancel();
     this.panel?.dispose();
   }
+}
+
+/** Open a file in the main editor with the cursor at the start of a line (1-based). */
+async function openAt(uri: string, line: number): Promise<void> {
+  const doc = await vscode.workspace.openTextDocument(vscode.Uri.parse(uri));
+  const pos = new vscode.Position(line - 1, 0);
+  await vscode.window.showTextDocument(doc, {
+    viewColumn: vscode.ViewColumn.One,
+    selection: new vscode.Range(pos, pos),
+  });
 }
 
 function nonce(): string {
