@@ -17,7 +17,7 @@ You need two things:
 
 1. Open the downloads page: https://github.com/JarvisAppleSlice/errorwise/releases/latest
 2. Scroll down to the heading **Assets**.
-3. Click **errorwise-0.1.0.vsix**. It downloads to your **Downloads** folder.
+3. Click the file whose name starts with **errorwise-** and ends with **.vsix**, for example **errorwise-0.1.1.vsix**. The numbers are the version. It downloads to your **Downloads** folder.
 
 Don't double-click the file after it downloads. It only opens from inside VS Code, which is the next step.
 
@@ -29,7 +29,7 @@ Don't double-click the file after it downloads. It only opens from inside VS Cod
 2. Press `Cmd+Shift+X` (Windows: `Ctrl+Shift+X`). A panel called **Extensions** opens on the left.
 3. At the top of that panel, click the three dots **...**
 4. Click **Install from VSIX...**
-5. Open your **Downloads** folder, click **errorwise-0.1.0.vsix**, then click **Install**.
+5. Open your **Downloads** folder, click the **errorwise-....vsix** file you downloaded, then click **Install**. If there are several, pick the one with the highest numbers.
 
 A small message appears in the bottom-right corner when it's done.
 

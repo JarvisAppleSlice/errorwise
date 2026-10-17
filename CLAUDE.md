@@ -19,6 +19,7 @@ A VS Code extension that explains error messages to people learning to code, usi
 - `src/prompt.ts`: the AI prompt and the JSON reply parser. No `vscode` import, so it is testable.
 - `src/knowledge.ts`: hand-written guides matched by regex (Python runtime, Pylance, JS/TS, C#). No `vscode` import. Order of `ENTRIES` matters: specific before general. `matchError` also reads the code line, for squiggles whose message only describes a symptom. Shared guides branch on which pattern matched to give language-specific steps. Use `key()` for keyboard shortcuts (Cmd on a Mac).
 - `src/context.ts`: builds `ErrorContext` from a diagnostic or from pasted text, and pulls the code around the problem line.
+- `src/cascade.ts`: finds knock-on errors. One typo (like C#'s `nnew Product { Id = 1 }`) makes the compiler misread the lines after it, and none of those later squiggles carry related information. `findEarlierError` walks back through errors at most 2 lines apart and returns the first one. The panel then shows a "Check line N first" box and a Reference line button for it, the hover label adds "(check line N first)", and the AI prompt is told not to fix code that is only broken because of it. No `vscode` import.
 - `src/traceback.ts`: reads pasted terminal output (Python, Node, C#): picks the line that states the error, and finds the file and line. No `vscode` import, so it is testable.
 - `src/render.ts`: panel HTML and CSS using VS Code theme variables. No `vscode` import. Shows "Go to line" plus a "Reference line" button and note for each of the diagnostic's related lines (e.g. where a missing property is declared).
 - `src/types.ts`: shared types.
@@ -34,7 +35,7 @@ A VS Code extension that explains error messages to people learning to code, usi
 
 ## Status
 
-- 47 built-in guides. `npm test` passes (118 checks). The panel tab icon uses `images/icon.png`, because `WebviewPanel.iconPath` needs an image file in 1.90, not a `ThemeIcon`.
+- 47 built-in guides. `npm test` passes (120 checks). The panel tab icon uses `images/icon.png`, because `WebviewPanel.iconPath` needs an image file in 1.90, not a `ThemeIcon`.
 - Being tested by the owner (Windows) and a friend (Mac, also a beginner). `TESTING.md` is the friend's step-by-step guide and tells them to download the `.vsix` from the GitHub Releases page, so each new test build needs a new release (`gh release create`, with the `.vsix` attached; bump the version in package.json first). Not published to the Marketplace. Publishing prep comes after testing.
 - The Copilot path works on the owner's free plan (answers come from `gpt-4.1`). The Anthropic path is checked up to a real request with a fake key (returns 401), not with a real key.
 - The `.vsix` ships the Anthropic SDK's runtime files from `node_modules` (about 730 files, 650 KB); `.vscodeignore` drops their type definitions and ES-module copies. Bundling (esbuild) would shrink this before publishing.

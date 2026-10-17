@@ -1,8 +1,8 @@
 import * as vscode from 'vscode';
 import { AiUnavailableError, explainWithAI, log } from './ai';
 import { GENERAL, matchError } from './knowledge';
-import { PanelState, renderHtml } from './render';
-import { ErrorContext, Explanation } from './types';
+import { PanelState, referenceLines, renderHtml } from './render';
+import { ErrorContext, Explanation, RelatedLine } from './types';
 
 /**
  * Shows explanations in a side panel.
@@ -113,9 +113,9 @@ export class Coach implements vscode.Disposable {
     } else if (msg.action === 'goToLine' && ctx.uri && ctx.line) {
       await openAt(ctx.uri, ctx.line);
     } else if (msg.action === 'goToRelated') {
-      const related = ctx.related?.[msg.index ?? -1];
+      const related = referenceLines(ctx)[msg.index ?? -1];
       if (related) {
-        await openAt(related.uri, related.line);
+        await openAt(related.uri, related.line, related);
       }
     }
   }
@@ -143,13 +143,17 @@ async function rememberUnmatched(state: vscode.Memento, message: string): Promis
   await state.update(UNMATCHED_KEY, [firstLine, ...list].slice(0, UNMATCHED_LIMIT));
 }
 
-/** Open a file in the main editor with the cursor at the start of a line (1-based). */
-async function openAt(uri: string, line: number): Promise<void> {
+/**
+ * Open a file in the main editor at a line (1-based). When `spot` says which part of the
+ * line, that part is highlighted, like the `nnew` in `nnew Product`.
+ */
+async function openAt(uri: string, line: number, spot?: Pick<RelatedLine, 'column' | 'endLine' | 'endColumn'>): Promise<void> {
   const doc = await vscode.workspace.openTextDocument(vscode.Uri.parse(uri));
-  const pos = new vscode.Position(line - 1, 0);
+  const start = new vscode.Position(line - 1, spot?.column ?? 0);
+  const end = spot?.endLine !== undefined && spot.endColumn !== undefined ? new vscode.Position(spot.endLine - 1, spot.endColumn) : start;
   await vscode.window.showTextDocument(doc, {
     viewColumn: vscode.ViewColumn.One,
-    selection: new vscode.Range(pos, pos),
+    selection: new vscode.Range(start, end),
   });
 }
 

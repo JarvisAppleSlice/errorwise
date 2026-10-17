@@ -2,7 +2,7 @@
   "name": "errorwise",
   "displayName": "Errorwise: Errors in Plain English",
   "description": "Turns confusing error messages into plain-language steps with everyday metaphors. Built for people learning to code.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "publisher": "your-publisher-id",
   "license": "MIT",
   "repository": {

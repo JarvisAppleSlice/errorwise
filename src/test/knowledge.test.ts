@@ -7,7 +7,9 @@ import assert from 'node:assert/strict';
 import { matchError, matchKnown } from '../knowledge';
 import { isOutOfQuota, orderModels } from '../models';
 import { buildPrompt, parseExplanation } from '../prompt';
-import { renderHtml } from '../render';
+import { findEarlierError } from '../cascade';
+import { referenceLines, renderHtml } from '../render';
+import { ErrorContext } from '../types';
 import { findLocation, lastMeaningfulLine } from '../traceback';
 
 const cases: [message: string, expectedId: string, mustMention?: string][] = [
@@ -275,6 +277,80 @@ const plainPanel = renderHtml(
   { nonce: 'n', cspSource: 'c' }
 );
 assert.ok(!plainPanel.includes('Reference line'), 'No reference buttons when there are no related lines');
+passed++;
+
+// Knock-on errors: the real C# compiler messages for `nnew Product { Id = 1, ... }` (0-based lines).
+const spot = (line: number, character: number, message: string, isError = true) => ({
+  line,
+  character,
+  endLine: line,
+  endCharacter: character + 4,
+  message,
+  isError,
+});
+const nnew = spot(12, 12, "The name 'nnew' does not exist in the current context");
+const cascade = [
+  nnew,
+  spot(12, 17, "Syntax error, ',' expected"),
+  spot(12, 17, "'Product' is a type, which is not valid in the given context"),
+  spot(12, 24, "Syntax error, ',' expected"),
+  spot(14, 16, "The name 'Id' does not exist in the current context"),
+  spot(15, 16, "The name 'Name' does not exist in the current context"),
+  spot(16, 16, "The name 'Price' does not exist in the current context"),
+  spot(17, 16, "The name 'Description' does not exist in the current context"),
+  spot(17, 58, "Invalid expression term '}'"),
+];
+const others = (target: ReturnType<typeof spot>) => cascade.filter((d) => d !== target);
+for (const target of cascade.slice(1)) {
+  assert.equal(findEarlierError(target, others(target)), nnew, `Should point back to nnew from: ${target.message}`);
+}
+assert.equal(findEarlierError(nnew, others(nnew)), undefined, 'The first error has nothing earlier');
+// An unrelated error further up, with a gap of more than two lines, is not blamed.
+const farAway = spot(2, 0, "The name 'totl' does not exist in the current context");
+assert.equal(findEarlierError(cascade[4], [farAway, ...others(cascade[4])]), nnew);
+assert.equal(findEarlierError(spot(9, 0, 'x'), [farAway]), undefined);
+// Warnings never start a chain.
+assert.equal(findEarlierError(cascade[4], [spot(13, 0, 'Possible null reference', false)]), undefined);
+passed++;
+
+// The panel shows a "Check line 13 first" box and a Reference line button for the earlier error,
+// and the AI is told about it.
+const knockOn: ErrorContext = {
+  message: "The name 'Description' does not exist in the current context",
+  fileName: 'ProductsController.cs',
+  line: 19,
+  uri: 'file:///shop/ProductsController.cs',
+  earlierError: {
+    uri: 'file:///shop/ProductsController.cs',
+    line: 14,
+    fileName: 'ProductsController.cs',
+    note: "The name 'nnew' does not exist in the current context",
+    column: 12,
+    endLine: 14,
+    endColumn: 16,
+    code: 'nnew Product',
+  },
+};
+const knockOnPanel = renderHtml(
+  { ctx: knockOn, explanation: matchKnown(knockOn.message)!.explanation, loading: false, canRetry: false },
+  { nonce: 'n', cspSource: 'c' }
+);
+for (const piece of [
+  'Check line 14 first',
+  'Line 14 there&#39;s another error',
+  'The name <code>nnew</code> does not exist',
+  '<code>nnew Product</code>',
+  'data-action="goToRelated" data-index="0">Reference line 14<',
+  'earlier error, fix this first',
+]) {
+  assert.ok(knockOnPanel.includes(piece.replace('&#39;', "'")), `Knock-on panel missing: ${piece}`);
+}
+assert.equal(referenceLines(knockOn)[0], knockOn.earlierError, 'The earlier error is the first Reference line button');
+const knockOnPrompt = buildPrompt(knockOn, { experienceLevel: 'brand new', metaphorTheme: 'anything relatable' });
+for (const piece of ['earlier error', 'line 14', 'nnew Product', "The name 'nnew' does not exist", 'Do not tell them to change code']) {
+  assert.ok(knockOnPrompt.includes(piece), `Prompt missing: ${piece}`);
+}
+assert.ok(!buildPrompt({ message: 'x' }, { experienceLevel: 'brand new', metaphorTheme: 'x' }).includes('earlier error'));
 passed++;
 
 // Which AI model to try first. Copilot's own list starts with models the free plan doesn't include.

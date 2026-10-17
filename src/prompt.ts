@@ -45,6 +45,14 @@ export function buildPrompt(ctx: ErrorContext, o: AiOptions): string {
       ? `\nFull output they copied:\n"""\n${ctx.fullOutput.slice(0, 4000)}\n"""`
       : '';
 
+  // A knock-on error: an earlier mistake may have made the compiler misread this line.
+  const e = ctx.earlierError;
+  const earlier = e
+    ? `\n\nIMPORTANT: there is an earlier error just before this one, on line ${e.line}${e.code ? ` (\`${e.code}\`)` : ''}:
+"${e.note}"
+One mistake often makes the compiler misread the code after it, so this error may only be a knock-on effect of that one. Check whether it is. If it is, say so plainly, point them to line ${e.line}, and make fixing that the first step. Do not tell them to change code that is only broken because of the earlier mistake.`
+    : '';
+
   return `You are Errorwise, a patient tutor inside VS Code for people learning to code.
 
 The learner is ${reader}.
@@ -53,7 +61,7 @@ They just got this error:
 """
 ${ctx.message}
 """
-${where.join('\n')}${output}
+${where.join('\n')}${output}${earlier}
 
 ${code}
 

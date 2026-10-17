@@ -12,7 +12,7 @@ Every file here contains mistakes on purpose. Press F5 in the main project to op
 | `web_shop/cart.ts`, `checkout.ts` | 16 TypeScript squiggles | Open the file. Nothing to run |
 | `web_shop/semicolon.ts`, `comma.ts`, `bracket.ts`, `return.ts` | One TypeScript syntax mistake each | Open the file. Nothing to run |
 | `csharp_shop/` | 10 C# errors that happen while the program runs | `dotnet run --project csharp_shop` lists them, `dotnet run --project csharp_shop -- 2` runs one |
-| `csharp_squiggles/` | 21 C# squiggles (needs the C# extension) | Open `Program.cs` and `Syntax.cs`. Nothing to run |
+| `csharp_squiggles/` | 30 C# squiggles (needs the C# extension) | Open `Program.cs`, `Syntax.cs` and `KnockOn.cs`. Nothing to run |
 
 For errors in the terminal: select the error text, then press Ctrl+Alt+E (Cmd+Option+E on a Mac), or right-click the selection and pick **Errorwise: Explain this error**.
 
@@ -102,6 +102,7 @@ C# scenario 9 has no built-in guide on purpose. It tests what Errorwise shows wh
 | | `Possible null reference argument...` (green squiggle) | possibly-null |
 | | `Dereference of a possibly null reference.` (green squiggle) | possibly-null |
 | | Plus: name not found, wrong types, missing return, misspelled `Lenght`, a name created twice, wrong number of inputs | the matching guides above |
+| `csharp_squiggles/KnockOn.cs` | `The name 'Id' does not exist...` and seven more, all caused by the `nnew` typo on line 17 | the matching guide, plus a "Check line 17 first" box and a Reference line 17 button |
 | `csharp_squiggles/Syntax.cs` | `; expected` | missing-semicolon |
 | | `) expected` | unclosed-bracket |
 

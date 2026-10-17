@@ -58,4 +58,4 @@ npm test          # compiles and runs the tests
 
 Press **F5** to open a test window with the extension loaded. It opens the `examples` folder, which is full of deliberate mistakes to try (see `examples/README.md`).
 
-To build an installable file: `npm run package` → `errorwise-0.1.0.vsix`, then in VS Code run **Extensions: Install from VSIX…**. `TESTING.md` is a guide for testers.
+To build an installable file: `npm run package` → `errorwise-<version>.vsix`, then in VS Code run **Extensions: Install from VSIX…**. `TESTING.md` is a guide for testers.

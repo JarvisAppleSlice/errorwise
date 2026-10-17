@@ -2,7 +2,7 @@
  * Builds the HTML for the explanation panel.
  * No 'vscode' import, so the page can be previewed or tested outside VS Code.
  */
-import { ErrorContext, Explanation } from './types';
+import { ErrorContext, Explanation, RelatedLine } from './types';
 
 export interface PanelState {
   ctx: ErrorContext;
@@ -77,8 +77,9 @@ function renderExplanation(ex: Explanation, state: PanelState): string {
       </details>`
     : '';
 
-  const related = state.ctx.related ?? [];
-  const inOtherFile = (fileName: string) => (fileName !== state.ctx.fileName ? ` in ${fileName}` : '');
+  const ctx = state.ctx;
+  const related = referenceLines(ctx);
+  const inOtherFile = (fileName: string) => (fileName !== ctx.fileName ? ` in ${fileName}` : '');
   const actions = [
     state.ctx.uri && state.ctx.line ? `<button data-action="goToLine">Go to line ${state.ctx.line}</button>` : '',
     ...related.map(
@@ -91,7 +92,10 @@ function renderExplanation(ex: Explanation, state: PanelState): string {
   // A short note on why each reference line matters, in the checker's own words.
   const relatedNotes = related.length
     ? `<ul class="related">${related
-        .map((r) => `<li><strong>Line ${r.line}${esc(inOtherFile(r.fileName))}:</strong> ${inline(quotesToCode(r.note))}</li>`)
+        .map((r) => {
+          const what = r === ctx.earlierError ? 'earlier error, fix this first: ' : '';
+          return `<li><strong>Line ${r.line}${esc(inOtherFile(r.fileName))}:</strong> ${what}${inline(quotesToCode(r.note))}</li>`;
+        })
         .join('')}</ul>`
     : '';
 
@@ -100,6 +104,7 @@ function renderExplanation(ex: Explanation, state: PanelState): string {
     ${badge}
     <h1>${inline(ex.title)}</h1>
   </header>
+  ${renderEarlierError(ctx)}
   ${loading}
   <section>
     <h2>What happened</h2>
@@ -117,6 +122,30 @@ function renderExplanation(ex: Explanation, state: PanelState): string {
   ${ex.remember ? `<p class="remember"><strong>Remember:</strong> ${inline(ex.remember)}</p>` : ''}
   ${actions ? `<div class="actions">${actions}</div>` : ''}
   ${relatedNotes}`;
+}
+
+/**
+ * Every line the panel offers a "Reference line" button for, in button order:
+ * the earlier error first (it matters most), then the checker's related lines.
+ * The panel code uses the same list to know where each button jumps.
+ */
+export function referenceLines(ctx: ErrorContext): RelatedLine[] {
+  return [...(ctx.earlierError ? [ctx.earlierError] : []), ...(ctx.related ?? [])];
+}
+
+/** A box at the top when an earlier error may have caused this one. */
+function renderEarlierError(ctx: ErrorContext): string {
+  const e = ctx.earlierError;
+  if (!e) {
+    return '';
+  }
+  const sameLine = e.line === ctx.line;
+  const where = sameLine ? 'Earlier on this line' : `Line ${e.line}`;
+  return `<div class="earlier" role="note">
+    <p><strong><span aria-hidden="true">⚠️</span> Check ${sameLine ? 'the start of this line' : `line ${e.line}`} first</strong></p>
+    <p>${where} there's another error: ${inline(quotesToCode(e.note))}${e.code ? ` (in ${inline('`' + e.code + '`')})` : ''}</p>
+    <p>One mistake often causes a few more errors after it. Fix that one first, and this error may disappear.</p>
+  </div>`;
 }
 
 /** Checkers quote names like 'quantity'. Show them as code instead. */
@@ -204,6 +233,12 @@ details summary { cursor: pointer; color: var(--vscode-textLink-foreground); }
 .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: var(--gap); }
 .related { list-style: none; padding: 0; margin: 8px 0 0; font-size: 0.88em; color: var(--vscode-descriptionForeground); }
 .related li { margin-top: 2px; }
+.earlier {
+  margin-top: 12px; padding: 10px 14px; border-radius: 8px;
+  background: var(--vscode-inputValidation-warningBackground, transparent);
+  border: 1px solid var(--vscode-inputValidation-warningBorder, var(--vscode-editorWarning-foreground));
+}
+.earlier p + p { margin-top: 4px; }
 button {
   font: inherit; font-size: 0.92em; padding: 6px 14px; border-radius: 4px; border: none; cursor: pointer;
   background: var(--vscode-button-background); color: var(--vscode-button-foreground);

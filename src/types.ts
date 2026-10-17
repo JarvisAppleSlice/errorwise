@@ -37,6 +37,11 @@ export interface ErrorContext {
   uri?: string;
   /** Other lines the error points at, like where a missing property is declared. */
   related?: RelatedLine[];
+  /**
+   * An earlier error just above this one that may have caused it (a "knock-on" error).
+   * For example, a typo like `nnew` makes the compiler misread the lines after it.
+   */
+  earlierError?: RelatedLine;
 }
 
 /** Another line of code that helps explain the error. */
@@ -47,6 +52,12 @@ export interface RelatedLine {
   fileName: string;
   /** What the checker says about this line, e.g. "'quantity' is declared here." */
   note: string;
+  /** Where on the line to put the cursor (0-based), and where the highlighted part ends. */
+  column?: number;
+  endLine?: number;
+  endColumn?: number;
+  /** The code on that line, for the AI. */
+  code?: string;
 }
 
 /** JSON-safe description of a diagnostic, passed through command links. */
@@ -61,4 +72,6 @@ export interface DiagnosticArgs {
   code?: string;
   /** The diagnostic's related information (0-based line numbers). */
   related?: { uri: string; line: number; message: string }[];
+  /** An earlier error in the same file that may have caused this one (0-based positions). */
+  earlier?: { line: number; character: number; endLine: number; endCharacter: number; message: string };
 }

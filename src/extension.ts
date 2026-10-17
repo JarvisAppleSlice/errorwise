@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { API_KEY_SECRET, log } from './ai';
 import { Coach, UNMATCHED_KEY } from './coach';
-import { contextFromDiagnostic, contextFromText, diagnosticToArgs } from './context';
+import { contextFromDiagnostic, contextFromText, diagnosticToArgs, earlierErrorFor } from './context';
 import { matchError } from './knowledge';
 import { DiagnosticArgs } from './types';
 
@@ -171,15 +171,21 @@ class ExplainHover implements vscode.HoverProvider {
   }
 }
 
-/** Short plain-language label for a problem, using the built-in guide when it has one. */
+/**
+ * Short plain-language label for a problem, using the built-in guide when it has one.
+ * When an earlier error may have caused this one, the label says to check that first.
+ */
 function friendlyLabel(doc: vscode.TextDocument, d: vscode.Diagnostic): string {
   const line = d.range.start.line;
   const known = matchError({ message: d.message, codeLine: line < doc.lineCount ? doc.lineAt(line).text : undefined });
-  if (known) {
-    return known.explanation.title;
-  }
   const first = d.message.split('\n')[0];
-  return first.length > 60 ? first.slice(0, 57) + '…' : first;
+  const label = known ? known.explanation.title : first.length > 60 ? first.slice(0, 57) + '…' : first;
+  const earlier = earlierErrorFor(doc.uri, d);
+  if (!earlier) {
+    return label;
+  }
+  const earlierLine = earlier.range.start.line;
+  return earlierLine === line ? `${label} (check earlier on this line first)` : `${label} (check line ${earlierLine + 1} first)`;
 }
 
 function escapeMd(s: string): string {

@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
+import { findEarlierError } from './cascade';
 import { findLocation, lastMeaningfulLine } from './traceback';
 import { DiagnosticArgs, ErrorContext } from './types';
 
@@ -18,7 +19,32 @@ export function diagnosticToArgs(uri: vscode.Uri, d: vscode.Diagnostic): Diagnos
     source: d.source,
     code: diagnosticCode(d),
     related: relatedLines(uri, d),
+    earlier: earlierSpot(uri, d),
   };
+}
+
+/**
+ * The earlier error just above this one that may have caused it, if any.
+ * See cascade.ts for how the chain of errors is followed back.
+ */
+export function earlierErrorFor(uri: vscode.Uri, d: vscode.Diagnostic): vscode.Diagnostic | undefined {
+  const spot = (x: vscode.Diagnostic) => ({
+    line: x.range.start.line,
+    character: x.range.start.character,
+    endLine: x.range.end.line,
+    endCharacter: x.range.end.character,
+    message: x.message,
+    isError: x.severity === vscode.DiagnosticSeverity.Error,
+    diagnostic: x,
+  });
+  return findEarlierError(spot(d), vscode.languages.getDiagnostics(uri).filter((x) => x !== d).map(spot))?.diagnostic;
+}
+
+function earlierSpot(uri: vscode.Uri, d: vscode.Diagnostic): DiagnosticArgs['earlier'] {
+  const e = earlierErrorFor(uri, d);
+  return e
+    ? { line: e.range.start.line, character: e.range.start.character, endLine: e.range.end.line, endCharacter: e.range.end.character, message: e.message }
+    : undefined;
 }
 
 /**
@@ -62,6 +88,16 @@ export async function contextFromDiagnostic(args: DiagnosticArgs): Promise<Error
       fileName: path.basename(vscode.Uri.parse(r.uri).fsPath),
       note: r.message,
     })),
+    earlierError: args.earlier && {
+      uri: args.uri,
+      line: args.earlier.line + 1,
+      fileName: path.basename(doc.fileName),
+      note: args.earlier.message,
+      column: args.earlier.character,
+      endLine: args.earlier.endLine + 1,
+      endColumn: args.earlier.endCharacter,
+      code: lineText(doc, args.earlier.line)?.trim(),
+    },
   };
 }
 
