@@ -1,19 +1,15 @@
 .vscode/**
 src/**
 examples/**
-out/test/**
+# esbuild packs everything the extension needs into dist/extension.js,
+# so the compiled-but-unbundled files and node_modules are not shipped.
+out/**
+node_modules/**
 **/*.map
 **/tsconfig.json
+esbuild.js
 images/*.svg
 CLAUDE.md
 TESTING.md
 .gitignore
 *.vsix
-# Runtime dependencies (the Anthropic SDK) ship inside the extension; vsce leaves out devDependencies.
-# Their type definitions, source copies and ES-module builds aren't needed to run.
-node_modules/**/*.d.ts
-node_modules/**/*.d.mts
-node_modules/**/*.d.cts
-node_modules/**/*.mjs
-node_modules/**/src/**
-node_modules/**/*.md

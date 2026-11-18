@@ -1,7 +1,5 @@
 # Errorwise: Errors in Plain English
 
-> **Here to help test Errorwise?** Follow the step-by-step guide: [TESTING.md](TESTING.md)
-
 A VS Code extension for people learning to code. It turns confusing error messages into:
 
 - **What happened**: one to three short, plain sentences
@@ -27,6 +25,21 @@ Works on Windows, Mac and Linux.
 If an AI model is available in VS Code (for example GitHub Copilot, including the free plan), Errorwise writes an explanation tailored to your actual code, using your variable names and line numbers. Without Copilot, you can add your own Anthropic API key with **Errorwise: Add an Anthropic API key**. The key is stored encrypted by VS Code, and each explanation is billed to your Anthropic account.
 
 Without AI, it uses built-in guides for about 50 of the most common beginner errors and squiggles in Python, JavaScript/TypeScript and C#. These also appear instantly while the AI is still writing.
+
+## Your code and privacy
+
+Errorwise has no server of its own and collects no usage data.
+
+When it asks an AI for an explanation, it sends:
+
+- the error message
+- the name of the file (not the folder it is in) and its language
+- about 10 lines of your code around the error
+- for a pasted or terminal error, the text you selected or copied
+
+This goes to whichever AI you use: GitHub Copilot (handled under your Copilot account) or Anthropic (only if you added your own API key). To keep everything on your computer, turn off `errorwise.useAI`. The built-in guides still work.
+
+Errors that had no built-in guide are remembered on your computer only (the last 50, first line of each), so you can copy them with **Errorwise: Copy errors that had no guide** if you want to share them as feedback.
 
 ## Settings
 
@@ -58,4 +71,4 @@ npm test          # compiles and runs the tests
 
 Press **F5** to open a test window with the extension loaded. It opens the `examples` folder, which is full of deliberate mistakes to try (see `examples/README.md`).
 
-To build an installable file: `npm run package` → `errorwise-<version>.vsix`, then in VS Code run **Extensions: Install from VSIX…**. `TESTING.md` is a guide for testers.
+To build an installable file: `npm run package` → `errorwise-<version>.vsix`, then in VS Code run **Extensions: Install from VSIX…**. Packaging bundles the code with esbuild into `dist/extension.js`. Testers can follow [TESTING.md](TESTING.md).

@@ -5,10 +5,11 @@ A VS Code extension that explains error messages to people learning to code, usi
 ## Commands
 
 - `npm install`: install dependencies
-- `npm run compile`: build TypeScript into `out/`
-- `npm test`: compile, then run `out/test/knowledge.test.js` (plain Node, no VS Code needed)
+- `npm run compile`: type-check into `out/` (used by the tests), then bundle with esbuild into `dist/extension.js` (what VS Code runs)
+- `npm test`: type-check, then run `out/test/knowledge.test.js` (plain Node, no VS Code needed)
 - F5: launch the Extension Development Host with the `examples/` folder
-- `npm run package`: build a `.vsix`
+- `npm run package`: build a `.vsix` (runs `vscode:prepublish`, a minified esbuild bundle; `--no-dependencies` because the SDK is inside the bundle)
+- `npm run publish`: publish to the Marketplace (needs a real `publisher` and `vsce login` first)
 
 ## How it fits together
 
@@ -38,7 +39,8 @@ A VS Code extension that explains error messages to people learning to code, usi
 - 47 built-in guides. `npm test` passes (120 checks). The panel tab icon uses `images/icon.png`, because `WebviewPanel.iconPath` needs an image file in 1.90, not a `ThemeIcon`.
 - Being tested by the owner (Windows) and a friend (Mac, also a beginner). `TESTING.md` is the friend's step-by-step guide and tells them to download the `.vsix` from the GitHub Releases page, so each new test build needs a new release (`gh release create`, with the `.vsix` attached; bump the version in package.json first). Not published to the Marketplace. Publishing prep comes after testing.
 - The Copilot path works on the owner's free plan (answers come from `gpt-4.1`). The Anthropic path is checked up to a real request with a fake key (returns 401), not with a real key.
-- The `.vsix` ships the Anthropic SDK's runtime files from `node_modules` (about 730 files, 650 KB); `.vscodeignore` drops their type definitions and ES-module copies. Bundling (esbuild) would shrink this before publishing.
+- esbuild (`esbuild.js`) bundles the extension and the Anthropic SDK into one file, so the `.vsix` is 8 files and about 117 KB. `.vscodeignore` leaves out `out/` and `node_modules/`. The SDK's dynamic `import()` becomes a lazy step inside the bundle; a fake-key request through the bundled SDK returns `AuthenticationError` as expected.
+- Publishing prep done: bundling, `CHANGELOG.md`, privacy section in the README (what is sent to the AI), more keywords. Still to do: Marketplace screenshots, a real `publisher` ID, testing the bundled build in VS Code (F5 and an installed `.vsix`).
 - To check guide wording against real messages: Pyright (`npx pyright --outputjson` in `examples/`, the engine inside Pylance), `tsc --strict` on `examples/web_shop/*.ts`, `dotnet build` on `examples/csharp_squiggles` (move `Syntax.cs` out first: syntax errors hide the rest), and `dotnet run --project csharp_shop -- N` for runtime errors. Pyright's command line doesn't print hints, so `"x" is not accessed` and `Code is unreachable` are unverified.
 - `publisher` in package.json is a placeholder (`your-publisher-id`).
 - `examples/` is a set of practice files with deliberate mistakes (see `examples/README.md` for the scenario list and the guide each should show). Never "fix" the mistakes in them.
@@ -54,4 +56,4 @@ A VS Code extension that explains error messages to people learning to code, usi
 - Rate the explanation (👍/👎) to improve guides and prompts
 - More guides from what testers' "Errorwise: Copy errors that had no guide" lists show
 - Java guides
-- Marketplace screenshots (icon is done: images/icon.png, source in images/icon.svg), changelog, publisher ID, bundling
+- Marketplace screenshots (icon is done: images/icon.png, source in images/icon.svg) and publisher ID
