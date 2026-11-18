@@ -121,8 +121,72 @@ export function parseExplanation(text: string): Explanation {
 
   let fix: Explanation['fix'];
   if (data.fix && typeof data.fix === 'object' && str(data.fix.explanation)) {
-    fix = { explanation: str(data.fix.explanation)!, code: str(data.fix.code) };
+    // The fix's code is left exactly as the AI wrote it.
+    fix = { explanation: cleanWording(str(data.fix.explanation)!), code: str(data.fix.code) };
   }
 
-  return { title, whatHappened, metaphor, steps, fix, remember: str(data.remember), source: 'ai' };
+  const remember = str(data.remember);
+  return {
+    title: cleanWording(title),
+    whatHappened: cleanWording(whatHappened),
+    metaphor: cleanWording(metaphor),
+    steps: steps.map(cleanWording),
+    fix,
+    remember: remember && cleanWording(remember),
+    source: 'ai',
+  };
+}
+
+// The writing rules ban words that make a learner feel slow ("just add a colon").
+// The prompt asks the AI not to use them, but it sometimes does anyway.
+
+/** Banned words that can be deleted without changing what the sentence means. */
+const DELETABLE = /(,\s*)?\b(just|simply|obviously|basically|of course)\b(,)?\s*/gi;
+
+/** Banned words that can't be deleted safely ("an easy fix" would become "an fix"). */
+const FLAGGED = /\b(easy|easily|trivial|trivially)\b/gi;
+
+/** Marks where a deleted word started a sentence, so the next word gets a capital letter. */
+const CAPITAL = '\u0000';
+
+/** Apply `change` only to the prose, never to `code in backticks`. */
+function outsideCode(text: string, change: (prose: string) => string): string {
+  return text
+    .split(/(`[^`]*`)/)
+    .map((part, i) => (i % 2 === 1 ? part : change(part)))
+    .join('');
+}
+
+/** Remove the deletable banned words and tidy the sentence they leave behind. */
+export function cleanWording(text: string): string {
+  const cleaned = outsideCode(text, (prose) =>
+    prose
+      // "not just numbers but text too" means "not only ... but", so keep that meaning.
+      // Without a "but" ("needs a list, not just a number"), the word is deleted like any other.
+      .replace(/\b([Nn])ot (just|simply)\b(?=[^.!?]*\bbut\b)/g, (_m, n) => `${n}ot only`)
+      .replace(DELETABLE, (match, leadComma, _word, _trailComma, offset: number, whole: string) => {
+        const rest = whole.slice(offset + match.length);
+        if (leadComma) {
+          // "This is, of course, wrong" → "This is wrong". "It works, of course." → "It works."
+          return /^[\w`"'(]/.test(rest) ? ' ' : '';
+        }
+        // "Just add a colon" → "Add a colon"
+        const startsSentence = /(^|[.!?]\s+)$/.test(whole.slice(0, offset));
+        return startsSentence ? CAPITAL : '';
+      })
+  );
+  return cleaned
+    .replace(new RegExp(`${CAPITAL}(\\W*)(\\w)`, 'g'), (_m, gap, letter) => gap + letter.toUpperCase())
+    .replace(new RegExp(CAPITAL, 'g'), '')
+    .replace(/ {2,}/g, ' ')
+    .replace(/ ([.,!?;:])/g, '$1')
+    .trim();
+}
+
+/** Banned words still left in an explanation after cleaning, to report in the Output channel. */
+export function findBannedWords(e: Explanation): string[] {
+  const prose = [e.title, e.whatHappened, e.metaphor, ...e.steps, e.fix?.explanation ?? '', e.remember ?? '']
+    .map((t) => t.replace(/`[^`]*`/g, ''))
+    .join(' ');
+  return [...new Set((prose.match(FLAGGED) ?? []).map((w) => w.toLowerCase()))];
 }

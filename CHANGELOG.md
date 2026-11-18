@@ -4,6 +4,7 @@
 
 - The extension is now packed into one small file (116 KB instead of about 730 files), so it installs and starts faster.
 - The README now explains what is sent to the AI and what stays on your computer.
+- AI explanations no longer say "just", "simply", "obviously", "basically" or "of course", even when the AI slips them in.
 
 ## 0.1.1 (test build)
 

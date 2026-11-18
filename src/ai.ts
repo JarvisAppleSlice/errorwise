@@ -2,7 +2,7 @@ import type AnthropicClient from '@anthropic-ai/sdk';
 import * as vscode from 'vscode';
 import { ErrorContext, Explanation } from './types';
 import { MAX_MODEL_TRIES, isOutOfQuota, orderModels } from './models';
-import { AiOptions, buildPrompt, parseExplanation } from './prompt';
+import { AiOptions, buildPrompt, findBannedWords, parseExplanation } from './prompt';
 
 export type { AiOptions };
 
@@ -58,7 +58,7 @@ export async function explainWithAI(
   if (apiKey) {
     const model = config.get<string>('anthropicModel', 'claude-opus-5-5').trim() || 'claude-opus-5-5';
     log.appendLine(`Asking Anthropic (${model})${vsCodeFailure ? ' because the VS Code models failed' : ''}.`);
-    return parseExplanation(await askAnthropic(apiKey, model, prompt, token));
+    return reportBannedWords(model, parseExplanation(await askAnthropic(apiKey, model, prompt, token)));
   }
 
   throw new AiUnavailableError(
@@ -66,6 +66,18 @@ export async function explainWithAI(
       ? 'There is no Anthropic API key yet, so this is the built-in explanation. Run "Errorwise: Add an Anthropic API key" from the Command Palette to add one.'
       : 'No AI model is available, so this is the built-in explanation. Install and sign in to GitHub Copilot (the free plan works), or add your own Anthropic API key, to get explanations tailored to your code.'
   );
+}
+
+/**
+ * parseExplanation already removed banned words like "just". Words it can't remove safely,
+ * like "easy", are written to the Output channel so you can see how often models use them.
+ */
+function reportBannedWords(modelId: string, explanation: Explanation): Explanation {
+  const words = findBannedWords(explanation);
+  if (words.length > 0) {
+    log.appendLine(`${modelId} used a banned word the extension can't remove: ${words.join(', ')}.`);
+  }
+  return explanation;
 }
 
 /**
@@ -88,7 +100,7 @@ async function askVsCodeModels(prompt: string, token: vscode.CancellationToken, 
       const explanation = parseExplanation(await askVsCodeModel(model, prompt, token));
       log.appendLine(`${model.id} answered.`);
       void memory.update(LAST_MODEL_KEY, model.id);
-      return explanation;
+      return reportBannedWords(model.id, explanation);
     } catch (err) {
       if (token.isCancellationRequested) {
         throw err;

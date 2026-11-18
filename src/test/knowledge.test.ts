@@ -6,7 +6,7 @@
 import assert from 'node:assert/strict';
 import { matchError, matchKnown } from '../knowledge';
 import { isOutOfQuota, orderModels } from '../models';
-import { buildPrompt, parseExplanation } from '../prompt';
+import { buildPrompt, cleanWording, findBannedWords, parseExplanation } from '../prompt';
 import { findEarlierError } from '../cascade';
 import { referenceLines, renderHtml } from '../render';
 import { ErrorContext } from '../types';
@@ -383,6 +383,36 @@ passed++;
 
 assert.throws(() => parseExplanation('I am not sure.'));
 assert.throws(() => parseExplanation('{"title":"x"}'));
+passed++;
+
+// Banned words in AI replies: deleted where the sentence still works, never inside code.
+const wording: [string, string][] = [
+  // From a real Copilot reply.
+  ['The code on line 10 tries to loop over `boxes`, but `boxes` is just the number 5.', 'The code on line 10 tries to loop over `boxes`, but `boxes` is the number 5.'],
+  ['Just add a colon at the end of line 3.', 'Add a colon at the end of line 3.'],
+  ['Simply change `5` to `range(5)`.', 'Change `5` to `range(5)`.'],
+  ['Obviously, the loop needs a list.', 'The loop needs a list.'],
+  ['This is, of course, a typo.', 'This is a typo.'],
+  ['It still works, of course.', 'It still works.'],
+  ['Lists can hold not just numbers but text too.', 'Lists can hold not only numbers but text too.'],
+  // From a real Copilot reply: no "but", so "not only" would change the meaning.
+  ['A loop needs a list or something similar, not just a number.', 'A loop needs a list or something similar, not a number.'],
+  ['Look at line 4. Just like before, the name is misspelled.', 'Look at line 4. Like before, the name is misspelled.'],
+  ['Use `just_one` and `simply()` here.', 'Use `just_one` and `simply()` here.'],
+  ['Check the adjustment on line 2.', 'Check the adjustment on line 2.'],
+];
+for (const [before, after] of wording) {
+  assert.equal(cleanWording(before), after, `cleanWording: ${before}`);
+}
+const banned = parseExplanation(
+  '{"title":"Just a typo","whatHappened":"It is an easy fix.","metaphor":"Like a label.","steps":["Simply rename it."],"fix":{"explanation":"Just renames it.","code":"just = 1"},"remember":"Names must match."}'
+);
+assert.equal(banned.title, 'A typo');
+assert.equal(banned.steps[0], 'Rename it.');
+assert.equal(banned.fix?.explanation, 'Renames it.');
+assert.equal(banned.fix?.code, 'just = 1', 'Code in the fix is never changed');
+assert.deepEqual(findBannedWords(banned), ['easy'], '"easy" cannot be deleted safely, so it is reported');
+assert.deepEqual(findBannedWords(parsed), []);
 passed++;
 
 // Prompt includes the learner's code, hint, and avoided metaphor.
