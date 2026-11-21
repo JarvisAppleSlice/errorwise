@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.0 (first Marketplace release)
 
 - The extension is now packed into one small file (116 KB instead of about 730 files), so it installs and starts faster.
 - The README now explains what is sent to the AI and what stays on your computer.
