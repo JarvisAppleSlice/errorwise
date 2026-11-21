@@ -140,7 +140,7 @@ function renderEarlierError(ctx: ErrorContext): string {
     return '';
   }
   const sameLine = e.line === ctx.line;
-  const where = sameLine ? 'Earlier on this line' : `Line ${e.line}`;
+  const where = sameLine ? 'Earlier on this line,' : `On line ${e.line},`;
   return `<div class="earlier" role="note">
     <p><strong><span aria-hidden="true">⚠️</span> Check ${sameLine ? 'the start of this line' : `line ${e.line}`} first</strong></p>
     <p>${where} there's another error: ${inline(quotesToCode(e.note))}${e.code ? ` (in ${inline('`' + e.code + '`')})` : ''}</p>

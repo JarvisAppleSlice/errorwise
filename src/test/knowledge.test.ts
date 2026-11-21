@@ -311,6 +311,19 @@ assert.equal(findEarlierError(cascade[4], [farAway, ...others(cascade[4])]), nne
 assert.equal(findEarlierError(spot(9, 0, 'x'), [farAway]), undefined);
 // Warnings never start a chain.
 assert.equal(findEarlierError(cascade[4], [spot(13, 0, 'Possible null reference', false)]), undefined);
+// Side-by-side type errors are separate mistakes, not a chain: no syntax error links them.
+// From examples/web_shop: `function lineTotal(price, quantity)`.
+const price = spot(22, 19, "Parameter 'price' implicitly has an 'any' type.");
+const quantity = spot(22, 26, "Parameter 'quantity' implicitly has an 'any' type.");
+assert.equal(findEarlierError(quantity, [price]), undefined, 'Two missing types on one line are not a chain');
+assert.equal(
+  findEarlierError(spot(11, 4, 'Expected 2 arguments, but got 1.'), [spot(10, 4, "Cannot find name 'totl'.")]),
+  undefined,
+  '"Expected 2 arguments" is not a syntax error'
+);
+// TypeScript and Python syntax errors still link a chain.
+assert.equal(findEarlierError(spot(5, 0, "Cannot find name 'b'."), [spot(4, 9, "',' expected.")])?.line, 4);
+assert.equal(findEarlierError(spot(3, 0, 'Expected expression'), [spot(2, 7, '"(" was not closed')])?.line, 2);
 passed++;
 
 // The panel shows a "Check line 13 first" box and a Reference line button for the earlier error,
@@ -337,7 +350,7 @@ const knockOnPanel = renderHtml(
 );
 for (const piece of [
   'Check line 14 first',
-  'Line 14 there&#39;s another error',
+  'On line 14, there&#39;s another error',
   'The name <code>nnew</code> does not exist',
   '<code>nnew Product</code>',
   'data-action="goToRelated" data-index="0">Reference line 14<',
@@ -347,7 +360,7 @@ for (const piece of [
 }
 assert.equal(referenceLines(knockOn)[0], knockOn.earlierError, 'The earlier error is the first Reference line button');
 const knockOnPrompt = buildPrompt(knockOn, { experienceLevel: 'brand new', metaphorTheme: 'anything relatable' });
-for (const piece of ['earlier error', 'line 14', 'nnew Product', "The name 'nnew' does not exist", 'Do not tell them to change code']) {
+for (const piece of ['earlier error', 'line 14', 'nnew Product', "The name 'nnew' does not exist", 'Do not tell them to change code', 'form whose title is smudged']) {
   assert.ok(knockOnPrompt.includes(piece), `Prompt missing: ${piece}`);
 }
 assert.ok(!buildPrompt({ message: 'x' }, { experienceLevel: 'brand new', metaphorTheme: 'x' }).includes('earlier error'));
@@ -420,7 +433,7 @@ const prompt = buildPrompt(
   { message: 'NameError', codeSnippet: '>> 3 | print(totl)', line: 3, languageId: 'python' },
   { experienceLevel: 'brand new', metaphorTheme: 'video games', teacherHint: 'labeled boxes', avoidMetaphor: 'jars on a shelf' }
 );
-for (const piece of ['print(totl)', 'video games', 'labeled boxes', 'jars on a shelf', 'started learning to code last week']) {
+for (const piece of ['print(totl)', 'video games', 'labeled boxes', 'jars on a shelf', 'started learning to code last week', 'Never write the corrected word']) {
   assert.ok(prompt.includes(piece), `Prompt missing: ${piece}`);
 }
 passed++;

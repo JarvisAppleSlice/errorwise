@@ -50,7 +50,8 @@ export function buildPrompt(ctx: ErrorContext, o: AiOptions): string {
   const earlier = e
     ? `\n\nIMPORTANT: there is an earlier error just before this one, on line ${e.line}${e.code ? ` (\`${e.code}\`)` : ''}:
 "${e.note}"
-One mistake often makes the compiler misread the code after it, so this error may only be a knock-on effect of that one. Check whether it is. If it is, say so plainly, point them to line ${e.line}, and make fixing that the first step. Do not tell them to change code that is only broken because of the earlier mistake.`
+One mistake often makes the compiler misread the code after it, so this error may only be a knock-on effect of that one. Check whether it is. If it is, say so plainly, point them to line ${e.line}, and make fixing that the first step. Do not tell them to change code that is only broken because of the earlier mistake.
+If the metaphor is about this knock-on effect, it must show why the later parts stop making sense: they depend on the broken part. For example, a form whose title is smudged, so the boxes below it labelled "Name" and "Price" make no sense, because you can't tell what they are the name and price of. A smudge or typo that only spoils itself is the wrong picture.`
     : '';
 
   return `You are Errorwise, a patient tutor inside VS Code for people learning to code.
@@ -88,6 +89,9 @@ THE STEPS
 - Start each step with an action word: Look, Find, Change, Add, Delete, Type, Run, Hover.
 - Point to exact places: line numbers, names, symbols.
 - Guide them to the fix. Don't hand over the finished code in the steps; the fix goes in its own field.
+- Never write the corrected word or code in a step, even when the fix is one letter. Point at what to compare instead.
+  Bad: "Change \`totl\` to \`total\`."
+  Good: "Compare the spelling of \`totl\` with the name set on line 10."
 
 Reply with ONLY a JSON object. No text before or after it. Use this shape:
 {

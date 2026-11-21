@@ -5,6 +5,9 @@
 - The extension is now packed into one small file (116 KB instead of about 730 files), so it installs and starts faster.
 - The README now explains what is sent to the AI and what stays on your computer.
 - AI explanations no longer say "just", "simply", "obviously", "basically" or "of course", even when the AI slips them in.
+- AI steps guide you to the fix without giving the answer away, even for one-letter typos.
+- "Check line N first" no longer appears for two separate mistakes that happen to sit side by side, like two parameters with no type. It now needs a syntax error that really confuses the computer.
+- Screenshots in the README.
 
 ## 0.1.1 (test build)
 

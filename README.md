@@ -8,17 +8,32 @@ A VS Code extension for people learning to code. It turns confusing error messag
 - **Stuck? Show me the fix**: hidden until you ask, so you try first
 - **Remember**: one line to keep for next time
 
+![The Errorwise panel explaining a Python "not iterable" error next to the code](images/screenshots/panel.png)
+
 When the error points at another line too, such as where a missing property is declared, the panel adds a **Reference line** button that jumps there.
+
+When one typo makes the computer misread the lines after it, Errorwise says so with a **Check line N first** box, and doesn't send you off fixing lines that were never broken.
+
+![A C# typo on line 17 causing an error on line 22, with the "Check line 17 first" box and the fix revealed](images/screenshots/fix-revealed.png)
 
 ## How to use it
 
 - **Hover** over a red squiggle and click **Explain simply**
+
+  ![Hovering over a TypeScript error shows an "Explain simply" link](images/screenshots/hover.png)
+
 - **Click the lightbulb** 💡 and pick **🎓 Explain simply**
+
+  ![The lightbulb menu with "Explain simply" at the top](images/screenshots/lightbulb.png)
+
 - **Put your cursor** on a line with an error and press **Ctrl+Alt+E** (Cmd+Option+E on Mac)
-- **Terminal errors**: select the error text, then press **Ctrl+Alt+E** (Cmd+Option+E on Mac), or right-click the selection and choose **Errorwise: Explain this error**
+- **Terminal errors**: select the error text, then press **Ctrl+Alt+E** (Cmd+Option+E on Mac), or right-click the selection and choose **Errorwise: Explain this error**. Errorwise finds the file and line for you.
+
+  ![A Python NameError from the terminal, explained in the panel with the line highlighted](images/screenshots/terminal.png)
+
 - **Anything else**: copy an error, then run **Errorwise: Explain selected text or a copied error** from the Command Palette
 
-Works on Windows, Mac and Linux.
+Works on Windows, Mac and Linux, with Python, JavaScript/TypeScript and C#.
 
 ## AI or no AI
 

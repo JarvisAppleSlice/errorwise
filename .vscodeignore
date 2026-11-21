@@ -9,6 +9,8 @@ node_modules/**
 **/tsconfig.json
 esbuild.js
 images/*.svg
+# The README's screenshots load from GitHub on the Marketplace page, so the .vsix doesn't need copies.
+images/screenshots/**
 CLAUDE.md
 TESTING.md
 .gitignore

@@ -26,11 +26,28 @@ const MAX_GAP = 2;
 const MAX_REACH = 25;
 
 /**
+ * Messages that mean the compiler couldn't read the code: "; expected", "Syntax error",
+ * "Expected expression", '"(" was not closed'. Only this kind of confusion makes the compiler
+ * misread the code after it. "Expected 2 arguments" is about values, not reading, so the
+ * digit after "Expected" rules it out.
+ */
+const SYNTAX = /expected\.?$|^Expected (?!\d)|syntax error|invalid expression term|unexpected token|was not closed|unterminated|invalid character/i;
+
+/** True when the message says the compiler couldn't read the code there. */
+export function isSyntaxError(message: string): boolean {
+  return SYNTAX.test(message.trim());
+}
+
+/**
  * The first error in the chain of errors leading up to `target`, if there is one.
  *
  * Walks backwards from the target through errors that sit close together, and
  * returns the earliest one. An unrelated error further up the file is left alone,
  * because a gap of more than a couple of lines breaks the chain.
+ *
+ * A chain needs at least one syntax error in it. Two type errors side by side, like
+ * `function lineTotal(price, quantity)` with no types on either, are separate
+ * mistakes: fixing `price` does nothing for `quantity`.
  */
 export function findEarlierError<T extends ErrorSpot>(target: ErrorSpot, all: T[]): T | undefined {
   const isBefore = (a: ErrorSpot, b: ErrorSpot) => a.line < b.line || (a.line === b.line && a.character < b.character);
@@ -49,5 +66,11 @@ export function findEarlierError<T extends ErrorSpot>(target: ErrorSpot, all: T[
     root = d;
     reachedLine = d.line;
   }
-  return root;
+
+  // Any syntax error on the chain's lines counts, even one at the same spot as the target
+  // (C# puts "',' expected" and "'Product' is a type..." on the very same character).
+  const hasSyntaxError =
+    isSyntaxError(target.message) ||
+    all.some((d) => d.isError && d.line >= reachedLine && d.line <= target.line && isSyntaxError(d.message));
+  return hasSyntaxError ? root : undefined;
 }
