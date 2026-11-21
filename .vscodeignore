@@ -1,4 +1,5 @@
 .vscode/**
+.github/**
 src/**
 examples/**
 # esbuild packs everything the extension needs into dist/extension.js,

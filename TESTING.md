@@ -15,8 +15,8 @@ You need two things:
 
 ## Step 1: Download Errorwise
 
-1. Open the downloads page: https://github.com/JarvisAppleSlice/errorwise/releases/latest
-2. Scroll down to the heading **Assets**.
+1. Open the downloads page: https://github.com/JarvisAppleSlice/errorwise/releases
+2. The newest version is at the top. Under it, find the heading **Assets** (click it if it's folded shut).
 3. Click the file whose name starts with **errorwise-** and ends with **.vsix**, for example **errorwise-0.1.1.vsix**. The numbers are the version. It downloads to your **Downloads** folder.
 
 Don't double-click the file after it downloads. It only opens from inside VS Code, which is the next step.

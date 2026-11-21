@@ -3,7 +3,7 @@
   "displayName": "Errorwise: Errors in Plain English",
   "description": "Turns confusing error messages into plain-language steps with everyday metaphors. Built for people learning to code.",
   "version": "0.1.1",
-  "publisher": "your-publisher-id",
+  "publisher": "jarvisappleslice",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -188,7 +188,7 @@
   "devDependencies": {
     "@types/node": "^20.0.0",
     "@types/vscode": "1.90.0",
-    "@vscode/vsce": "^3.0.0",
+    "@vscode/vsce": "^4.1.1",
     "esbuild": "^0.25.12",
     "typescript": "^5.4.0"
   },

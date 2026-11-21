@@ -1,0 +1,58 @@
+# Publishes Errorwise to the VS Code Marketplace when you publish a GitHub release.
+#
+# How it signs in: "Trusted Publishing". GitHub proves to the Marketplace that this run
+# comes from this repo and this file, so there is no password or token to store.
+# The Marketplace side is set up once, under the publisher's "Trusted Publishing" page.
+#
+# Test builds for testers: tick "Set as a pre-release" when you create the release.
+# Pre-releases skip this workflow, so they never reach the Marketplace.
+
+name: Publish to the Marketplace
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  publish:
+    if: ${{ !github.event.release.prerelease }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # attach the .vsix to the release
+      id-token: write # lets GitHub prove to the Marketplace who is publishing
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install
+        run: npm ci
+
+      - name: Check the release tag matches the version in package.json
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          VERSION="v$(node -p "require('./package.json').version")"
+          if [ "$VERSION" != "$TAG" ]; then
+            echo "The release is tagged $TAG, but package.json says $VERSION."
+            echo "Bump the version in package.json, push it, then make a release tagged $VERSION."
+            exit 1
+          fi
+
+      - name: Run the tests
+        run: npm test
+
+      - name: Build the .vsix
+        run: npx vsce package --no-dependencies
+
+      - name: Publish to the Marketplace
+        run: npx vsce publish --oidc --packagePath errorwise-*.vsix
+
+      - name: Attach the .vsix to the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: gh release upload "$TAG" errorwise-*.vsix --clobber

@@ -9,7 +9,8 @@ A VS Code extension that explains error messages to people learning to code, usi
 - `npm test`: type-check, then run `out/test/knowledge.test.js` (plain Node, no VS Code needed)
 - F5: launch the Extension Development Host with the `examples/` folder
 - `npm run package`: build a `.vsix` (runs `vscode:prepublish`, a minified esbuild bundle; `--no-dependencies` because the SDK is inside the bundle)
-- `npm run publish`: publish to the Marketplace (needs a real `publisher` and `vsce login` first)
+- Publishing to the Marketplace: `.github/workflows/publish.yml` runs when a GitHub release is published and is NOT a pre-release. It checks the tag matches `v` + package.json version, runs the tests, packages, publishes with `vsce publish --oidc` (Trusted Publishing, no token; needs vsce 4.1+ and Node 22+), and attaches the `.vsix` to the release. Global Azure DevOps PATs were retired on 2026-12-01, so `npm run publish` from a laptop no longer works without other credentials.
+- Test builds for testers: make the GitHub release a **pre-release**, so the workflow skips it. TESTING.md links to the releases list (not `/latest`, which skips pre-releases).
 
 ## How it fits together
 
@@ -37,12 +38,12 @@ A VS Code extension that explains error messages to people learning to code, usi
 ## Status
 
 - 47 built-in guides. `npm test` passes (121 checks). The panel tab icon uses `images/icon.png`, because `WebviewPanel.iconPath` needs an image file in 1.90, not a `ThemeIcon`.
-- Being tested by the owner (Windows) and a friend (Mac, also a beginner). `TESTING.md` is the friend's step-by-step guide and tells them to download the `.vsix` from the GitHub Releases page, so each new test build needs a new release (`gh release create`, with the `.vsix` attached; bump the version in package.json first). Not published to the Marketplace. Publishing prep comes after testing.
+- Being tested by the owner (Windows) and a friend (Mac, also a beginner). `TESTING.md` is the friend's step-by-step guide and tells them to download the `.vsix` from the GitHub Releases page, so each new test build needs a new release (`gh release create --prerelease`, with the `.vsix` attached; bump the version in package.json first). Not published to the Marketplace. Publishing prep comes after testing.
 - The Copilot path works on the owner's free plan (answers come from `gpt-4.1`). The Anthropic path is checked up to a real request with a fake key (returns 401), not with a real key.
 - esbuild (`esbuild.js`) bundles the extension and the Anthropic SDK into one file, so the `.vsix` is 8 files and about 117 KB. `.vscodeignore` leaves out `out/` and `node_modules/`. The SDK's dynamic `import()` becomes a lazy step inside the bundle; a fake-key request through the bundled SDK returns `AuthenticationError` as expected.
 - Publishing prep done: bundling, `CHANGELOG.md`, privacy section in the README (what is sent to the AI), more keywords, five README screenshots in `images/screenshots/` (left out of the `.vsix`; the Marketplace loads them from GitHub, so the repo must be public). The bundled build was tested through F5 (panel, hover, lightbulb, terminal, knock-on). Still to do: a real `publisher` ID, making the repo public, and a final check of the installed `.vsix`.
 - To check guide wording against real messages: Pyright (`npx pyright --outputjson` in `examples/`, the engine inside Pylance), `tsc --strict` on `examples/web_shop/*.ts`, `dotnet build` on `examples/csharp_squiggles` (move `Syntax.cs` out first: syntax errors hide the rest), and `dotnet run --project csharp_shop -- N` for runtime errors. Pyright's command line doesn't print hints, so `"x" is not accessed` and `Code is unreachable` are unverified.
-- `publisher` in package.json is a placeholder (`your-publisher-id`).
+- `publisher` in package.json is `jarvisappleslice` (extension ID `jarvisappleslice.errorwise`). The Marketplace needs a Trusted Publishing policy for this repo and `publish.yml` before the workflow can publish.
 - `examples/` is a set of practice files with deliberate mistakes (see `examples/README.md` for the scenario list and the guide each should show). Never "fix" the mistakes in them.
 
 ## Known gaps
