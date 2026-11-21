@@ -11,7 +11,7 @@ This guide takes about 10 minutes. You don't need to know much about coding to f
 You need two things:
 
 - **VS Code** installed on your computer. If you don't have it, download it free from https://code.visualstudio.com
-- **A GitHub account**, signed in on this website. You are probably signed in already if you can read this page.
+- **A GitHub account**, for the free AI explanations in Step 4. You don't need one to download Errorwise.
 
 ## Step 1: Download Errorwise
 
@@ -20,8 +20,6 @@ You need two things:
 3. Click the file whose name starts with **errorwise-** and ends with **.vsix**, for example **errorwise-0.1.1.vsix**. The numbers are the version. It downloads to your **Downloads** folder.
 
 Don't double-click the file after it downloads. It only opens from inside VS Code, which is the next step.
-
-> If the page says "Not Found", you are either signed out of GitHub or haven't accepted Samuel's invitation yet. Check your email for an invitation from GitHub and click **Accept**.
 
 ## Step 2: Install it in VS Code
 
